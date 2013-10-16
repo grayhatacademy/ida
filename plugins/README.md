@@ -4,26 +4,51 @@ IDA Plugins
 Collection of IDA plugins.
 
 codatify.py
-===
+-----------
 
 What it does: 
 
-	o Defines ASCII strings that IDA's auto analysis missed
-	o Converts all undefined bytes in the data segment into DWORDs
-	o Defines functions/code that IDA's auto analysis missed
+  * Defines ASCII strings that IDA's auto analysis missed
+  * Converts all undefined bytes in the data segment into DWORDs (thus allowing IDA to resolve function and jump table pointers)
+  * Defines functions/code that IDA's auto analysis missed
+
+Blob of data before running codatify:
+
+Running codatify:
 
 ![Running codatify.py](images/how_to_use_codatify.png)
 
+Blob of data after running codatify:
+
 localxrefs.py
-===
+-------------
 
 What it does:
 
-	o Finds references from within the current function to any highlighted text
+  * Finds references from within the current function to any highlighted text
+
+Here's some MIPS code. Where does that $s2 register get set?
+
+![Before localxrefs.py](images/where_does_s2_get_set.png)
+
+Running localxrefs:
+
+![Running localxrefs.py](images/how_to_run_localxrefs.png)
+
+All references to $s2 in the current function are clearly listed:
+
+![After localxrefs.py](images/localxrefs_output.png)
 
 mipslocalvars.py
-===
+----------------
 
 What it does:
 
-	o Appropriately names stack variables used by the compiler for storing registers on the stack
+  * Appropriately names stack variables used by the compiler for storing registers on the stack, simplifying stack data analysis (MIPS only)
+
+A function's stack layout before running mipslocalvars:
+
+Running mipslocalvars:
+
+The function's stack layout after running mipslocalvars:
+
