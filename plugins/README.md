@@ -12,7 +12,7 @@ What it does:
 	o Converts all undefined bytes in the data segment into DWORDs
 	o Defines functions/code that IDA's auto analysis missed
 
-![Running codatify.py](images/how_to_run_codatify.png)
+![Running codatify.py](images/how_to_use_codatify.png)
 
 localxrefs.py
 ===
