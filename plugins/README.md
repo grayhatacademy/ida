@@ -1,7 +1,7 @@
 IDA Plugins
 ===
 
-Collection of IDA plugins.
+Collection of IDA plugins that I've written to help ease RE work. Just drop them into IDA's *plugins* directory.
 
 codatify.py
 -----------
@@ -9,16 +9,20 @@ codatify.py
 What it does: 
 
   * Defines ASCII strings that IDA's auto analysis missed
-  * Converts all undefined bytes in the data segment into DWORDs (thus allowing IDA to resolve function and jump table pointers)
   * Defines functions/code that IDA's auto analysis missed
+  * Converts all undefined bytes in the data segment into DWORDs (thus allowing IDA to resolve function and jump table pointers)
 
 Blob of data before running codatify:
+
+![Before codatify.py](images/undefined_data.png)
 
 Running codatify:
 
 ![Running codatify.py](images/how_to_use_codatify.png)
 
 Blob of data after running codatify:
+
+![After codatify.py](images/defined_data.png)
 
 localxrefs.py
 -------------
