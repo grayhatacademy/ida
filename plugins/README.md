@@ -14,7 +14,7 @@ What it does:
 
 Blob of data before running codatify:
 
-![Before codatify.py](images/undefined_data.png)
+![Before codatify.py](images/undefined_bytes.png)
 
 Running codatify:
 
@@ -22,7 +22,7 @@ Running codatify:
 
 Blob of data after running codatify:
 
-![After codatify.py](images/defined_data.png)
+![After codatify.py](images/defined_bytes.png)
 
 localxrefs.py
 -------------
