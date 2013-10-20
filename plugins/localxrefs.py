@@ -10,6 +10,8 @@
 import idc
 import idaapi
 
+localxrefs = None
+
 class LocalXrefs(object):
 
 	UP   = 'Up  '
@@ -106,6 +108,25 @@ class LocalXrefs(object):
 				}
 
 			ea += idaapi.cmd.size
+
+	def highlight(self, highlight=True, mnem=None, optype=None, direction=None, text=None):
+		for (ea, info) in self.xrefs.iteritems():
+			if mnem and info['mnem'] != mnem:
+				highlight = False
+			elif optype and info['optype'] != optype:
+				highlight = False
+			elif direction and info['direction'] != direction:
+				highlight = False
+			elif text and info['text'] != text:
+				highlight = False
+
+			if highlight:
+				color = 0x00ff00
+			else:
+				color = idc.DEFCOLOR
+
+			idc.SetColor(ea, idc.CIC_ITEM, color) 
+		
 	
 class localizedxrefs_t(idaapi.plugin_t):
 	flags = 0
@@ -126,9 +147,12 @@ class localizedxrefs_t(idaapi.plugin_t):
 		return None
 
 	def run(self, arg):
+		global localxrefs
 		fmt = ''
 
 		r = LocalXrefs()
+		localxrefs = r
+
 		offsets = r.xrefs.keys()
 		offsets.sort()
 
