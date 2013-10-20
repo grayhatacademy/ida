@@ -99,7 +99,7 @@ class codatify_t(idaapi.plugin_t):
 	wanted_hotkey = ""
 
 	def init(self):
-		self.menu_context = idaapi.add_menu_item("Options/", "Define data and code", "Alt-3", 0, self.fix_code_data, (None,))
+		self.menu_context = idaapi.add_menu_item("Options/", "Fixup code/data", "Alt-3", 0, self.fix_code_data, (None,))
 		return idaapi.PLUGIN_KEEP
 
 	def term(self):
