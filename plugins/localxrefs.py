@@ -3,6 +3,10 @@
 # Useful, for example, to find instructions that use a particular register, or that reference a literal value.
 #
 # Invoke by highlighting the desired text in IDA, then going to Jump->List local xrefs, or by pressing Alt+8.
+# Highlighting is also supported; once xrefs are found, type the following in the Python command window:
+#
+#	Python> localxrefs.highlight()       <-- Highlight all xrefs
+#	Python> localxrefs.highlight(False)  <-- Un-highlight all xrefs
 #
 # Craig Heffner
 # Tactical Network Solutions
