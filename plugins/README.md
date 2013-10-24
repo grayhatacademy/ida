@@ -62,3 +62,22 @@ The function's stack layout after running mipslocalvars:
 
 ![After mipslocalvars.py](images/after_mipslocalvars.png)
 
+mipsrop.py
+----------
+
+What it does:
+
+  * Allows you to search for suitable ROP gadgets in MIPS executable code (MIPS only)
+
+Running mipsrop:
+
+![Running mipsrop.py](images/how_to_run_mipsrop.png)
+
+Searching for ROP gadgets that put a stack address into the $a0 register:
+
+![Using mipsrop.py](images/mipsrop_find.png)
+
+Listing a summary of marked ROP gadgets in the current IDB:
+
+![Listing mipsrop.py](images/mipsrop_summary.png)
+
