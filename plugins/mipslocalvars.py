@@ -30,7 +30,7 @@ class NameMIPSSavedRegisters(object):
 			while mea < (ea + (self.INSIZE * self.SEARCH_DEPTH)):
 				mnem = idc.GetMnem(mea)
 
-				if mnem == 'sw':
+				if mnem in ['sw', 'sd']:
 					reg = idc.GetOpnd(mea, 0)
 					dst = idc.GetOpnd(mea, 1)
 	
@@ -57,16 +57,11 @@ class mips_saved_registers_t(idaapi.plugin_t):
 	wanted_hotkey = ""
 
 	def init(self):
-		if idc.GetShortPrm(idc.INF_PROCNAME).lower().startswith('mips'):
-			self.menu_context = idaapi.add_menu_item("Options/", "Name saved registers", "Alt-4", 0, self.name_saved_registers, (None,))
-		else:
-			self.menu_context = None
-
+		self.menu_context = idaapi.add_menu_item("Options/", "Name saved registers", "Alt-4", 0, self.name_saved_registers, (None,))
 		return idaapi.PLUGIN_KEEP
 
 	def term(self):
-		if self.menu_context is not None:
-			idaapi.del_menu_item(self.menu_context)
+		idaapi.del_menu_item(self.menu_context)
 		return None
 
 	def run(self, arg):
