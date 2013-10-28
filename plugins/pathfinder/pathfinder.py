@@ -57,6 +57,8 @@ class PathFinderGraph(idaapi.GraphViewer):
 		self.edge_nodes = []
 		self.start_nodes = []
 
+		print "Excludes:", self.excludes
+
 		for path in self.results:
 			nogo = False
 
@@ -114,8 +116,8 @@ class PathFinderGraph(idaapi.GraphViewer):
 		return str(self[node_id])
 
 	def OnGetText(self, node_id):
-		name = str(self[node_id])
 		color = idc.DEFCOLOR
+		name = str(self[node_id])
 
 		if self.nodes[node_id] in self.edge_nodes:
 			color = 0x00ffff
@@ -124,7 +126,9 @@ class PathFinderGraph(idaapi.GraphViewer):
 		elif self.nodes[node_id] in self.end_nodes:
 			color = 0x0000ff
 
-		self.colorize(self.nodes[node_id], color)
+		if callable(self.colorize):
+			self.colorize(self.nodes[node_id], color)
+
 		return (name, color)
 
 	def OnCommand(self, cmd_id):
@@ -244,7 +248,8 @@ class PathFinderGraph(idaapi.GraphViewer):
 		self.Refresh()
 
 	def _uncolorize(self, node):
-		self.colorize(node, idc.DEFCOLOR)
+		if callable(self.colorize):
+			self.colorize(node, idc.DEFCOLOR)
 
 class PathFinder(object):
 	'''
@@ -268,7 +273,7 @@ class PathFinder(object):
 		self.last_depth = 0
 		self.full_paths = []
 		self.current_path = []
-		self.destination = destination
+		self.destination = self._name2ea(destination)
 		self.build_call_tree(self.destination)
 
 	def __enter__(self):
