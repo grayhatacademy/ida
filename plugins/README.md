@@ -1,7 +1,8 @@
 IDA Plugins
 ===
 
-Collection of IDA plugins that I've written to help ease RE work. Unless otherwise specified, just drop the .py files into IDA's *plugins* directory.
+Collection of IDA plugins that I've written to help with embedded RE work.
+Unless otherwise specified, just drop the .py files into IDA's *plugins* directory.
 
 codatify
 --------
