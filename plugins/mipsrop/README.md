@@ -1,9 +1,11 @@
 mipsrop.py
+==========
+
+Features
 ----------
 
-What it does:
-
-  * Allows you to search for suitable ROP gadgets in MIPS executable code (MIPS only)
+  * Allows you to search for suitable ROP gadgets in MIPS executable code
+  * Built-in methods to search for common ROP gadgets
 
 Running mipsrop:
 
@@ -17,3 +19,9 @@ Listing a summary of marked ROP gadgets in the current IDB:
 
 ![Listing mipsrop.py](../images/mipsrop_summary.png)
 
+Use *mipsrop.help()* to see all available options!
+
+Installation
+------------
+
+Just copy mipsrop.py into your IDA *plugins* directory.

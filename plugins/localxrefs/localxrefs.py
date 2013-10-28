@@ -129,7 +129,10 @@ class LocalXrefs(object):
 			else:
 				color = idc.DEFCOLOR
 
-			idc.SetColor(ea, idc.CIC_ITEM, color) 
+			idc.SetColor(ea, idc.CIC_ITEM, color)
+
+	def unhighlight(self):
+		self.highlight(False)
 		
 	
 class localizedxrefs_t(idaapi.plugin_t):
