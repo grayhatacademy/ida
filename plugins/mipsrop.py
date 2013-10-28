@@ -93,12 +93,32 @@ class ROPGadget(object):
 	Class for storing information about a specific ROP gadget.
 	'''
 	
-	def __init__(self, entry, exit, operation=None, description="ROP gaget"):
+	def __init__(self, control, jump, operation=None, description="ROP gaget"):
 		self.h = '-' * 112
-		self.entry = entry
-		self.exit = exit
+		self.control = control
+		self.exit = jump
 		self.operation = operation
 		self.description = description
+		
+		if self.control.opnd1:
+			self.control.register = self.control.opnd1
+		else:
+			self.control.register = self.control.opnd0
+
+		if self.exit.opnd1:
+			self.exit.register = self.exit.opnd1
+		else:
+			self.exit.register = self.exit.opnd0
+		
+		if self.operation:
+			if self.operation.ea < self.control.ea:
+				self.entry = self.operation
+			else:
+				self.entry = self.control
+		else:
+			self.operation = self.control
+			self.entry = self.control
+
 
 	def header(self):
 		return self.h + "\n|  Address     |  Action                                              |  Control Jump                          |\n" + self.h
@@ -107,22 +127,38 @@ class ROPGadget(object):
 		return self.h
 
 	def __str__(self):
-		if self.operation:
-			op = self.operation
-			if self.operation.ea < self.entry.ea:
-				first = self.operation
-			else:
-				first = self.entry
-		else:
-			op = self.entry
-			first = self.entry
+		return "|  0x%.8X  |  %-50s  |  %-5s %-30s  |" % (self.entry.ea, str(self.operation), self.exit.mnem, self.control.register)
 
-		if self.entry.opnd1:
-			reg = self.entry.opnd1
-		else:
-			reg = self.entry.opnd0
+class BowcasterBuilder(object):
+	'''
+	Class to generate bowcaster code from a list of selected ROP gadgets. WIP.
+	'''
 
-		return "|  0x%.8X  |  %-50s  |  %-5s %-30s  |" % (first.ea, str(op), self.exit.mnem, reg)
+	INSIZE = 4
+	SEARCH_DEPTH = 25
+
+	def __init__(self, gadgets):
+		self.code = []
+		self.gadgets = gadgets
+
+	def build_code(self):
+		keys = self.gadgets.keys()
+		keys.sort()
+	
+		for key in keys[::-1]:
+			last_instruction = False
+			ea = self.gadgets[key]
+			end_ea = ea + self.SEARCH_DEPTH
+
+			while ea <= end_ea:
+				mnem = idc.GetMnem(ea)
+				if mnem in ['jr', 'jalr']:
+					last_instruction = True
+				ea += self.INSIZE
+
+	def print_code(self):
+		for line in self.code:
+			print line
 
 class MIPSROPFinder(object):
 	'''
@@ -138,19 +174,21 @@ class MIPSROPFinder(object):
 		self.start = idc.BADADDR
 		self.end = idc.BADADDR
 		self.system_calls = []
+		self.double_jumps = []
 		self.controllable_jumps = []
 		start = 0
 		end = 0
 
 		for (start, end) in self._get_segments(self.CODE):
-			self.system_calls += self._find_system_calls(start, end)
 			self.controllable_jumps += self._find_controllable_jumps(start, end)
+			self.system_calls += self._find_system_calls(start, end)
+			self.double_jumps += self._find_double_jumps(start, end)
 			if self.start == idc.BADADDR:
 				self.start = start
 		self.end = end
 	
-		if self.controllable_jumps:
-			print "MIPS ROP Finder activated, found %d controllable jumps and %d controllable system calls between 0x%.8X and 0x%.8X" % (len(self.controllable_jumps), len(self.system_calls), self.start, self.end)
+		if self.controllable_jumps or self.system_calls:
+			print "MIPS ROP Finder activated, found %d controllable jumps between 0x%.8X and 0x%.8X" % (len(self.controllable_jumps), self.start, self.end)
 		
 	def _get_segments(self, attr):
 		segments = []
@@ -209,6 +247,17 @@ class MIPSROPFinder(object):
 						bad = True
 
 		return bad
+
+	def _contains_bad_instruction(self, start_ea, end_ea, bad_instructions=['j', 'b'], no_clobber=[]):
+		ea = start_ea
+
+		while ea <= end_ea:
+			if self._is_bad_instruction(ea, bad_instructions, no_clobber):
+				return True
+			else:
+				ea += self.INSIZE
+
+		return False
 		
 	def _find_prev_instruction_ea(self, start_ea, instruction, end_ea=0, no_baddies=True, regex=False, dont_overwrite=[]):
 		instruction_ea = idc.BADADDR
@@ -314,6 +363,26 @@ class MIPSROPFinder(object):
 
 		return system_calls
 
+	def _find_double_jumps(self, start_ea, end_ea):
+		double_jumps = []
+		
+		for i in range(0, len(self.controllable_jumps)):
+			g1 = self.controllable_jumps[i]
+			if g1.exit.mnem != 'jalr':
+				continue
+
+			for j in range(i+1, len(self.controllable_jumps)):
+				g2 = self.controllable_jumps[j]
+				distance = (g2.entry.ea - g1.exit.ea)
+
+				if distance > 0 and distance <= (self.SEARCH_DEPTH * self.INSIZE):
+					if g1.control.register != g2.control.register:
+						if not self._contains_bad_instruction(g1.exit.ea+self.INSIZE, g2.control.ea-self.INSIZE, no_clobber=[g2.control.register]):
+							double_jumps.append(g1)
+							break
+
+		return double_jumps
+
 	def _find_rop_gadgets(self, gadget):
 		gadget_list = []
 
@@ -345,11 +414,56 @@ class MIPSROPFinder(object):
 		
 		print "Found %d matching gadgets" % (len(gadgets))
 
+	def _get_marked_gadgets(self):
+		rop_gadgets = {}
+
+		for i in range(1, 1024):
+			marked_pos = idc.GetMarkedPos(i)
+			if marked_pos != idc.BADADDR:
+				marked_comment = idc.GetMarkComment(i)
+				if marked_comment and marked_comment.lower().startswith("rop"):
+					rop_gadgets[marked_comment] = marked_pos
+			else:
+				break
+
+		return rop_gadgets
+
+	def doubles(self):
+		'''
+		Prints a list of all "double jump" gadgets (useful for function calls).
+		'''
+		self._print_gadgets(self.double_jumps)
+
+	def stackfinders(self):
+		'''
+		Prints a list of all gadgets that put a stack address into a register.
+		'''
+		self.find("addiu .*, $sp")
+
+	def lia0(self):
+		'''
+		Prints a list of all gadgets that load an immediate value number into $a0 (useful for setting up the argument to sleep).
+		'''
+		self.find("li $a0")
+
+	def iret(self):
+		'''
+		Prints a lits of all "indirect return" gadgets (useful for function calls).
+		'''
+		iret_gadgets = []
+
+		for gadget in self._find_rop_gadgets(MIPSInstruction("move", "\$t9")):
+			if gadget.exit.mnem == 'jr' and gadget.exit.register == '$t9':
+				iret_gadgets.append(gadget)
+
+		self._print_gadgets(iret_gadgets)
+
 	def system(self):
 		'''
-		Prints a list of all potentially controllable calls to system().
+		Prints a list of gadgets that may be used to call system().
 		'''
-		self._print_gadgets(self.system_calls)
+		sys_gadgets = self.system_calls + self._find_rop_gadgets(MIPSInstruction("addiu", "\$a0", "\$sp"))
+		self._print_gadgets(sys_gadgets)
 
 	def find(self, instruction_string):
 		'''
@@ -388,7 +502,7 @@ class MIPSROPFinder(object):
 		Prints a summary of your currently marked ROP gadgets, in alphabetical order by the marked name.
 		To mark a location as a ROP gadget, simply mark the position in IDA (Alt+M) with any name that starts with "ROP".
 		'''
-		rop_gadgets = {}
+		rop_gadgets = self._get_marked_gadgets()
 		summaries = []
 		delim_char = "-"
 		headings = {
@@ -402,15 +516,6 @@ class MIPSROPFinder(object):
 			'summary'	: len(headings['summary']),
 		}
 		total_length = (3 * len(headings)) + 1
-
-		for i in range(1, 1024):
-			marked_pos = idc.GetMarkedPos(i)
-			if marked_pos != idc.BADADDR:
-				marked_comment = idc.GetMarkComment(i)
-				if marked_comment and marked_comment.lower().startswith("rop"):
-					rop_gadgets[marked_comment] = marked_pos
-			else:
-				break
 
 		if rop_gadgets:
 			gadget_keys = rop_gadgets.keys()
@@ -468,6 +573,14 @@ class MIPSROPFinder(object):
 
 				print delim
 
+	def build(self):
+		'''
+		WIP.
+		'''
+		gadgets = self._get_marked_gadgets()
+		bc = BowcasterBuilder(gadgets)
+		bc.build_code()
+
 	def help(self):
 		'''
 		Show help info.
@@ -483,6 +596,21 @@ class MIPSROPFinder(object):
 		print "mipsrop.system()"
 		print delim
 		print self.system.__doc__
+
+		print ""
+		print "mipsrop.doubles()"
+		print delim
+		print self.doubles.__doc__
+
+		print ""
+		print "mipsrop.stackfinders()"
+		print delim
+		print self.stackfinders.__doc__
+
+		print ""
+		print "mipsrop.iret()"
+		print delim
+		print self.iret.__doc__
 
 		print ""
 		print "mipsrop.summary()"
@@ -511,4 +639,8 @@ class mipsropfinder_t(idaapi.plugin_t):
                 
 def PLUGIN_ENTRY():
         return mipsropfinder_t()
+
+# DEBUG
+#if __name__ == '__main__':
+#	mipsrop = MIPSROPFinder()
 
