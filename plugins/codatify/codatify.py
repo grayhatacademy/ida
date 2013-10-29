@@ -32,10 +32,13 @@ class Codatify(object):
 	
 		return ea
 
-	# Creates ASCII strings and converts remaining data into DWORDS.
-	def datify(self):
+	# Creates ASCII strings
+	def stringify(self):
 		n = 0
 		ea = self.get_start_ea(self.DATA)
+
+		if ea == idc.BADADDR:
+			ea = idc.FirstSeg()
 
 		print "\nLooking for possible strings starting at: %s:0x%X" % (idc.SegName(ea), ea)
 
@@ -45,7 +48,13 @@ class Codatify(object):
 					n += 1
 
 		print "Created %d new ASCII strings" % n
-	
+
+	# Converts remaining data into DWORDS.
+	def datify(self):
+		ea = self.get_start_ea(self.DATA)
+		if ea == idc.BADADDR:
+			ea = idc.FirstSeg()
+		
 		print "Converting remaining data to DWORDs...",
 	
 		while ea != idc.BADADDR:
@@ -59,17 +68,21 @@ class Codatify(object):
 
 		print "done.\n"
 
-	def codeify(self, ea=idc.BADADDR, force=False):
+	# Creates functions and code blocks
+	def codeify(self, ea=idc.BADADDR):
 		func_count = 0
 		code_count = 0
 
 		if ea == idc.BADADDR:
 			ea = self.get_start_ea(self.CODE)
+			if ea == idc.BADADDR:
+				ea = idc.FirstSeg()
 
-		if not force and self.get_start_ea(self.DATA) == idc.BADADDR:
+		print "\nLooking for undefined code starting at: %s:0x%X" % (idc.SegName(ea), ea)
+
+		if self.get_start_ea(self.DATA) == idc.BADADDR:
 			print "WARNING: No data segments defined! I don't know where the code segment ends and the data segment begins."
 	
-		print "\nLooking for undefined code starting at: 0x%X...\n" % ea
 
 		while ea != idc.BADADDR:
 			try:
@@ -87,7 +100,7 @@ class Codatify(object):
             
 			ea = idc.NextAddr(ea)
     
-		print "\nCreated %d new functions and %d new code blocks\n" % (func_count, code_count)
+		print "Created %d new functions and %d new code blocks\n" % (func_count, code_count)
 
 
 
@@ -111,8 +124,9 @@ class codatify_t(idaapi.plugin_t):
 
 	def fix_code_data(self, arg):
 		cd = Codatify()
-		cd.datify()
+		cd.stringify()
 		cd.codeify()
+		cd.datify()
 
 def PLUGIN_ENTRY():
 	return codatify_t()
