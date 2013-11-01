@@ -293,17 +293,18 @@ class MIPSROPFinder(object):
 	def _find_controllable_jumps(self, start_ea, end_ea):
 		controllable_jumps = []
 		t9_controls = [
-			MIPSInstruction("move", "$t9"),
+			MIPSInstruction("move", "\$t9"),
+			MIPSInstruction("addiu", "\$t9", "^\$"),
 		]
 		t9_jumps = [
-			MIPSInstruction("jalr", "$t9"),
-			MIPSInstruction("jr", "$t9"),
+			MIPSInstruction("jalr", "\$t9"),
+			MIPSInstruction("jr", "\$t9"),
 		]
 		ra_controls = [
-			MIPSInstruction("lw", "$ra"),
+			MIPSInstruction("lw", "\$ra"),
 		]
 		ra_jumps = [
-			MIPSInstruction("jr", "$ra"),
+			MIPSInstruction("jr", "\$ra"),
 		]
 		t9_musnt_clobber = ["$t9"]
 		ra_musnt_clobber = ["$ra"]
@@ -321,7 +322,7 @@ class MIPSROPFinder(object):
 
 			while ea <= end_ea:
 
-				ea = self._find_next_instruction_ea(ea, possible_control_instruction, end_ea)
+				ea = self._find_next_instruction_ea(ea, possible_control_instruction, end_ea, regex=True)
 				if ea != idc.BADADDR:
 					ins_size = idaapi.decode_insn(ea)
 
@@ -330,7 +331,7 @@ class MIPSROPFinder(object):
 					
 					if control_register:
 						for jump in jumps:
-							jump_ea = self._find_next_instruction_ea(ea+ins_size, jump, end_ea, no_baddies=True, dont_overwrite=musnt_clobber)
+							jump_ea = self._find_next_instruction_ea(ea+ins_size, jump, end_ea, no_baddies=True, regex=True, dont_overwrite=musnt_clobber)
 							if jump_ea != idc.BADADDR:
 								jump_instruction = self._get_instruction(jump_ea)
 								controllable_jumps.append(ROPGadget(control_instruction, jump_instruction, description="Controllable Jump"))
@@ -428,11 +429,17 @@ class MIPSROPFinder(object):
 
 		return rop_gadgets
 
+	def double(self):
+		self.doubles()
+
 	def doubles(self):
 		'''
 		Prints a list of all "double jump" gadgets (useful for function calls).
 		'''
 		self._print_gadgets(self.double_jumps)
+
+	def stackfinder(self):
+		self.stackfinders()
 
 	def stackfinders(self):
 		'''
@@ -465,7 +472,7 @@ class MIPSROPFinder(object):
 		sys_gadgets = self.system_calls + self._find_rop_gadgets(MIPSInstruction("addiu", "\$a0", "\$sp"))
 		self._print_gadgets(sys_gadgets)
 
-	def find(self, instruction_string):
+	def find(self, instruction_string=""):
 		'''
 		Locates all potential ROP gadgets that contain the specified instruction.
 
