@@ -453,17 +453,26 @@ class MIPSROPFinder(object):
 		'''
 		self.find("li $a0")
 
+	def tail(self):
+		return self.tails()
+
+	def tails(self):
+		'''
+		Prints a lits of all tail call gadgets (useful for function calls).
+		'''
+		return self.iret()
+
 	def iret(self):
 		'''
-		Prints a lits of all "indirect return" gadgets (useful for function calls).
+		Prints a lits of all tail gadgets (useful for function calls).
 		'''
-		iret_gadgets = []
+		tail_gadgets = []
 
 		for gadget in self._find_rop_gadgets(MIPSInstruction("move", "\$t9")):
 			if gadget.exit.mnem == 'jr' and gadget.exit.register == '$t9':
-				iret_gadgets.append(gadget)
+				tail_gadgets.append(gadget)
 
-		self._print_gadgets(iret_gadgets)
+		self._print_gadgets(tail_gadgets)
 
 	def system(self):
 		'''
@@ -615,9 +624,9 @@ class MIPSROPFinder(object):
 		print self.stackfinders.__doc__
 
 		print ""
-		print "mipsrop.iret()"
+		print "mipsrop.tails()"
 		print delim
-		print self.iret.__doc__
+		print self.tails.__doc__
 
 		print ""
 		print "mipsrop.summary()"
