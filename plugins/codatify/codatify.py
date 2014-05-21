@@ -112,7 +112,8 @@ class codatify_t(idaapi.plugin_t):
 	wanted_hotkey = ""
 
 	def init(self):
-		self.menu_context = idaapi.add_menu_item("Options/", "Fixup code/data", "Alt-3", 0, self.fix_code_data, (None,))
+		self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "Alt-3", 0, self.fix_code, (None,))
+		self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "Alt-4", 0, self.fix_data, (None,))
 		return idaapi.PLUGIN_KEEP
 
 	def term(self):
@@ -122,10 +123,13 @@ class codatify_t(idaapi.plugin_t):
 	def run(self, arg):
 		pass
 
-	def fix_code_data(self, arg):
+	def fix_code(self, arg):
+		cd = Codatify()
+		cd.codeify()
+
+	def fix_data(self, arg):
 		cd = Codatify()
 		cd.stringify()
-		cd.codeify()
 		cd.datify()
 
 def PLUGIN_ENTRY():

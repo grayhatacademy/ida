@@ -304,6 +304,7 @@ class MIPSROPFinder(object):
 			MIPSInstruction("lw", "\$ra"),
 		]
 		ra_jumps = [
+			# TODO: Search for jumps to registers other than $ra.
 			MIPSInstruction("jr", "\$ra"),
 		]
 		t9_musnt_clobber = ["$t9"]
