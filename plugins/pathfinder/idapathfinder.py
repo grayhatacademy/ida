@@ -47,6 +47,13 @@ class idapathfinder_t(idaapi.plugin_t):
         #                        0, 
         #                        self.FindPathsToSingle, 
         #                        (None,)))
+        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
+                                  "Find paths to the current function block",
+                                  "Alt-7",
+                                  0,
+                                  self.FindBlockPaths,
+                                  (None,)))
+        
         return idaapi.PLUGIN_KEEP
 
     def term(self):
@@ -87,7 +94,7 @@ class idapathfinder_t(idaapi.plugin_t):
             except:
                 pass
 
-            self.graph = pathfinder.PathFinderGraph(results, 'Path Graph', pf.colorize)
+            self.graph = pathfinder.PathFinderGraph(results, 'Path Graph')
             self.graph.Show()
 
     def _get_user_selected_functions(self, many=False):

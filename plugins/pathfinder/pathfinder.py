@@ -3,34 +3,95 @@ import idaapi
 import idautils
 import time
 
-class PathFinderGraph(idaapi.GraphViewer):
+class History(object):
     '''
-    Class for generating an idaapi.GraphViewer graph.
+    Manages include/exclude graph history.
     '''
 
-    def __init__(self, results, title="PathFinder Graph", colorize=None):
-        '''
-        Class constructor.
+    INCLUDE_ACTION = 0
+    EXCLUDE_ACTION = 1
 
-        @results - A list of lists, each representing a call graph.
-        @title   - The title of the graph window.
+    def __init__(self):
+        self.reset()
 
-        Returns None.
-        '''
-        idaapi.GraphViewer.__init__(self, title)
-        self.ids = {}
-        self.nodes = {}
+    def reset(self):
         self.history = []
         self.includes = []
         self.excludes = []
+        self.history_index = 0
+        self.include_index = 0
+        self.exclude_index = 0
+
+    def update_history(self, action):
+        if self.excludes and len(self.history)-1 != self.history_index:
+            self.history = self.history[0:self.history_index+1]
+        self.history.append(action)
+        self.history_index = len(self.history)-1
+
+    def add_include(self, obj):
+        if self.includes and len(self.includes)-1 != self.include_index:
+            self.includes = self.includes[0:self.include_index+1]
+        self.includes.append(obj)
+        self.include_index = len(self.includes)-1
+        self.update_history(self.INCLUDE_ACTION)
+
+    def add_exclude(self, obj):
+        if len(self.excludes)-1 != self.exclude_index:
+            self.excludes = self.excludes[0:self.exclude_index+1]
+        self.excludes.append(obj)
+        self.exclude_index  = len(self.excludes)-1
+        self.update_history(self.EXCLUDE_ACTION)
+
+    def get_includes(self):
+        return set(self.includes[0:self.include_index+1])
+
+    def get_excludes(self):
+        return set(self.excludes[0:self.exclude_index+1])
+
+    def undo(self):
+        if self.history:
+            if self.history[self.history_index] == self.INCLUDE_ACTION:
+                if self.include_index >= 0:
+                    self.include_index -= 1
+            elif self.history[self.history_index] == self.EXCLUDE_ACTION:
+                if self.exclude_index >= 0:
+                    self.exclude_index -= 1
+
+            self.history_index -= 1
+            if self.history_index < 0:
+                self.history_index = 0
+
+    def redo(self):
+        self.history_index += 1
+        if self.history_index >= len(self.history):
+            self.history_index = len(self.history)-1
+
+        if self.history[self.history_index] == self.INCLUDE_ACTION:
+            if self.include_index < len(self.includes)-1:
+                self.include_index += 1
+        elif self.history[self.history_index] == self.EXCLUDE_ACTION:
+            if self.exclude_index < len(self.excludes)-1:
+                self.exclude_index += 1
+
+class PathFinderGraph(idaapi.GraphViewer):
+    '''
+    Displays the graph and manages graph actions.
+    '''
+
+    def __init__(self, results, title="PathFinder Graph"):
+        idaapi.GraphViewer.__init__(self, title)
+        self.results = results
+
+        self.nodes_ea2id = {}
+        self.nodes_id2ea = {}
+        self.edges = {}
         self.end_nodes = []
         self.edge_nodes = []
         self.start_nodes = []
-        self.delete_on_click = False
+
+        self.history = History()
         self.include_on_click = False
-        self.results = results
-        self.colorize = colorize
-        self.activate_count = 0
+        self.exclude_on_click = False
 
     def Show(self):
         '''
@@ -42,214 +103,198 @@ class PathFinderGraph(idaapi.GraphViewer):
             return False
         else:
             self.cmd_undo = self.AddCommand("Undo", "U")
-            self.cmd_reset = self.AddCommand("Reset graph", "R")
-            self.cmd_delete = self.AddCommand("Exclude node", "X")
+            self.cmd_redo = self.AddCommand("Redo", "R")
+            self.cmd_reset = self.AddCommand("Reset graph", "G")
+            self.cmd_exclude = self.AddCommand("Exclude node", "X")
             self.cmd_include = self.AddCommand("Include node", "I")
-            self.activate_count = 0
             return True
 
     def OnRefresh(self):
+        # Clear the graph before refreshing
         self.Clear()
-        self.ids = {}
-        self.nodes = {}
-        self.nodes_xrefs = {}
+        self.nodes_ea2id = {}
+        self.nodes_id2ea = {}
+        self.edges = {}
         self.end_nodes = []
         self.edge_nodes = []
         self.start_nodes = []
 
-        print "Excludes:", self.excludes
-
+        includes = self.history.get_includes()
+        excludes = self.history.get_excludes()
+        
         for path in self.results:
-            nogo = False
+            parent_node = None
 
-            for include in self.includes:
-                if include not in path:
-                    nogo = True
+            # Check to see if this path contains all nodes marked for explicit inclusion
+            if (set(path) & includes) != includes:
+                continue
 
-            for exclude in self.excludes:
-                if exclude in path:
-                    nogo = True
-                    break
-    
-            if not nogo:
-                prev_node = None
-                prev_nod_name = None
+            # Check to see if this path contains any nodes marked for explicit exclusion
+            if (set(path) & excludes) != set():
+                continue
 
-                for node in path:
-                    name = self.get_node_name(node)
+            for ea in path:
+                # If this node already exists, use its existing node ID
+                if self.nodes_ea2id.has_key(ea):
+                    this_node = self.nodes_ea2id[ea]
+                # Else, add this node to the graph
+                else:
+                    this_node = self.AddNode(self.get_name_by_ea(ea))
+                    self.nodes_ea2id[ea] = this_node
+                    self.nodes_id2ea[this_node] = ea
 
-                    if not self.ids.has_key(name):
-                        self.ids[name] = self.AddNode(name)
-                        self.nodes[self.ids[name]] = node
-                    if prev_node is not None:
-                        self.AddEdge(prev_node_name, self.ids[name])
-                        if node not in self.nodes_xrefs[prev_node]:
-                            self.nodes_xrefs[prev_node].append(node)
-                    prev_node = node
-                    prev_node_name = self.ids[name]
-                    try:
-                        self.nodes_xrefs[prev_node]
-                    except:
-                        self.nodes_xrefs[prev_node] = []
+                # If there is a parent node, add an edge between the parent node and this one
+                if parent_node is not None:
+                    self.AddEdge(parent_node, this_node)
+                    if this_node not in self.edges[parent_node]:
+                        self.edges[parent_node].append(this_node)
+                
+                # Update the parent node for the next loop
+                parent_node = this_node
+                if not self.edges.has_key(parent_node):
+                    self.edges[parent_node] = []
 
-                try:
-                    self.start_nodes.append(path[0])
-                    self.end_nodes.append(path[-1])
-                    self.edge_nodes.append(path[-2])
-                except:
-                    pass
-            else:
-                # Be sure to uncolorize the nodes in the path here, else 
-                # user-excluded nodes will still remain colorized in the disassembly.
-                for node in path:
-                    self._uncolorize(node)
+            try:
+                # Track the first, last, and next to last nodes in each path for
+                # proper colorization in self.OnGetText.
+                self.start_nodes.append(self.nodes_ea2id[path[0]])
+                self.end_nodes.append(self.nodes_ea2id[path[-1]])
+                self.edge_nodes.append(self.nodes_ea2id[path[-2]])
+            except:
+                pass
 
         return True
 
-    def OnActivate(self):
-        # Can't call refresh on the first callback to OnActivate (results in crash).
-        if self.activate_count > 0:
-            self.Refresh()
-        self.activate_count += 1
-
-    def OnHint(self, node_id):
-        return str(self[node_id])
-
     def OnGetText(self, node_id):
         color = idc.DEFCOLOR
-        name = str(self[node_id])
 
-        if self.nodes[node_id] in self.edge_nodes:
+        if node_id in self.edge_nodes:
             color = 0x00ffff
-        elif self.nodes[node_id] in self.start_nodes:
+        elif node_id in self.start_nodes:
             color = 0x00ff00
-        elif self.nodes[node_id] in self.end_nodes:
+        elif node_id in self.end_nodes:
             color = 0x0000ff
 
-        if callable(self.colorize):
-            self.colorize(self.nodes[node_id], color)
+        return (self[node_id], color)
 
-        return (name, color)
+    def OnHint(self, node_id):
+        hint = ""
+
+        try:
+            for edge_node in self.edges[node_id]:
+                hint += "%s\n" % self[edge_node]
+        except Exception as e:
+            pass
+
+        return hint
 
     def OnCommand(self, cmd_id):
         if self.cmd_undo == cmd_id:
-            self._undo()
+            if self.include_on_click or self.exclude_on_click:
+                self.include_on_click = False
+                self.exclude_on_click = False
+            else:
+                self.history.undo()
+            self.Refresh()
+        elif self.cmd_redo == cmd_id:
+            self.history.redo()
+            self.Refresh()
         elif self.cmd_include == cmd_id:
             self.include_on_click = True
-        elif self.cmd_delete == cmd_id:
-            self.delete_on_click = True
+        elif self.cmd_exclude == cmd_id:
+            self.exclude_on_click = True
         elif self.cmd_reset == cmd_id:
-            self._reset()
-
-    def OnDblClick(self, node_id):
-        edges = []
-        jump_ea = None
-        delim = "-"
-        header1 = "Edge Source"
-        header2 = "Edge Destination"
-        to_max_len = len(header2)
-        frm_max_len = len(header1)
-        this_func_ea = idc.LocByName(str(self[node_id]))
-
-        for named_xref_ea in self.nodes_xrefs[self.nodes[node_id]]:
-            named_xref = idc.Name(named_xref_ea)
-            print "Looking for %s => %s (0x%.8X)" % (str(self[node_id]), named_xref, named_xref_ea)
-
-            for xref in idautils.XrefsTo(named_xref_ea):
-                if xref.type in [idc.fl_CN, idc.fl_CF] and idc.GetFunctionAttr(xref.frm, idc.FUNCATTR_START) == this_func_ea:
-                    xref_ea = xref.frm
-
-                    if jump_ea is None:
-                        jump_ea = xref_ea
-
-                    frm = self.get_node_name(xref_ea)
-                    to = self.get_node_name(named_xref_ea)
-
-                    if len(frm) > frm_max_len:
-                        frm_max_len = len(frm)
-                    if len(to) > to_max_len:
-                        to_max_len = len(to)
-
-                    edges.append((frm, to))
-
-        if edges:
-            fmt = "| %%-%ds | %%-%ds |" % (frm_max_len, to_max_len)
-            total_len = frm_max_len + to_max_len + 7
-            
-            print delim * total_len
-            print fmt % (header1, header2)
-            print delim * total_len
-
-            for (frm, to) in edges:
-                print fmt % (frm, to)
-            
-            print delim * total_len
-
-        if jump_ea is None:
-            jump_ea = self.nodes[node_id]
-        
-        idc.Jump(jump_ea)
+            self.include_on_click = False
+            self.exclude_on_click = False
+            self.history.reset()
+            self.Refresh()
 
     def OnClick(self, node_id):
-        if self.delete_on_click:
-            self.delete_on_click = False
-            self.excludes.append(self.nodes[node_id])
-            self.history.append('exclude')
-        elif self.include_on_click:
+        if self.include_on_click:
+            self.history.add_include(self.nodes_id2ea[node_id])
             self.include_on_click = False
-            self.includes.append(self.nodes[node_id])
-            self.history.append('include')
+        elif self.exclude_on_click:
+            self.history.add_exclude(self.nodes_id2ea[node_id])
+            self.exclude_on_click = False
         self.Refresh()
 
-    def OnClose(self):
-        # Clean up node colorization
-        for (name, node) in self.nodes.iteritems():
-            self._uncolorize(node)
+    def OnDblClick(self, node_id):
+        xref_locations = []
+        node_ea = self.get_ea_by_name(self[node_id])
 
-    def get_node_name(self, ea):
+        if self.edges.has_key(node_id):
+            for edge_node_id in self.edges[node_id]:
+
+                edge_node_name = self[edge_node_id]
+                edge_node_ea = self.get_ea_by_name(edge_node_name)
+
+                if edge_node_ea != idc.BADADDR:
+                    for xref in idautils.XrefsTo(edge_node_ea):
+                        # Is the specified node_id the source of this xref?
+                        if self.match_xref_source(xref, node_ea):
+                            xref_locations.append((xref.frm, edge_node_ea))
+
+        if xref_locations:
+            xref_locations.sort()
+
+            print ""
+            print "Path Xrefs from %s:" % self[node_id]
+            print "-" * 100
+            for (xref_ea, dst_ea) in xref_locations:
+                print "%-50s  =>  %s" % (self.get_name_by_ea(xref_ea), self.get_name_by_ea(dst_ea))
+            print "-" * 100
+            print ""
+            
+            idc.Jump(xref_locations[0][0])
+        else:
+            idc.Jump(node_ea)
+
+    def match_xref_source(self, xref, source):
+        # TODO: This must be modified if support for graphing function blocks is added.
+        return ((xref.type != idc.fl_F) and (idc.GetFunctionAttr(xref.frm, idc.FUNCATTR_START) == source))
+
+    def get_ea_by_name(self, name):
+        '''
+        Get the address of a location by name.
+
+        @name - Location name
+
+        Returns the address of the named location, or idc.BADADDR on failure.
+        '''
+        # This allows support of the function offset style names (e.g., main+0C)
+        # TODO: Is there something in the IDA API that does this already??
+        if '+' in name:
+            (func_name, offset) = name.split('+')
+            base_ea = idc.LocByName(func_name)
+            if base_ea != idc.BADADDR:
+                try:
+                    ea = base_ea + int(offset, 16)
+                except:
+                    ea = idc.BADADDR
+        else:
+            ea = idc.LocByName(name)
+            if ea == idc.BADADDR:
+                try:
+                    ea = int(name, 0)
+                except:
+                    ea = idc.BADADDR
+
+        return ea
+
+    def get_name_by_ea(self, ea):
+        '''
+        Get the name of the specified address.
+
+        @ea - Address.
+
+        Returns a name for the address, one of idc.Name, idc.GetFuncOffset or 0xXXXXXXXX.
+        '''
         name = idc.Name(ea)
         if not name:
             name = idc.GetFuncOffset(ea)
             if not name:
                 name = "0x%X" % ea
         return name
-
-    def _get_first_xref(self, frm, to):
-        frm_func_ea = frm
-
-        for xref in idautils.XrefsTo(to):
-            if xref.frm != idc.BADADDR and idc.GetFunctionAttr(xref.frm. idc.FUNCATTR_START) == frm_func_ea:
-                return xref.frm
-
-        return frm
-
-    def _undo(self):
-        self.delete_on_click = False
-        self.include_on_click = False
-        
-        if self.history:
-            last_action = self.history.pop(-1)
-        else:
-            last_action = None
-
-        if last_action == 'include' and self.includes:
-            self.includes.pop(-1)
-        elif last_action == 'exclude' and self.excludes:
-            self.excludes.pop(-1)
-            
-        self.Refresh()
-
-    def _reset(self):
-        self.history = []
-        self.includes = []
-        self.excludes = []
-        self.delete_on_click = False
-        self.include_on_click = False
-        self.Refresh()
-
-    def _uncolorize(self, node):
-        if callable(self.colorize):
-            self.colorize(node, idc.DEFCOLOR)
 
 class PathFinder(object):
     '''
@@ -466,17 +511,6 @@ class PathFinder(object):
         '''
         return []
 
-    def colorize(self, node, color):
-        '''
-        This should be overidden by a subclass to properly colorize the specified node.
-
-        @node  - The Node object to be colorized.
-        @color - The HTML color code.
-        
-        Returns None.
-        '''
-        #idc.SetColor(node, idc.CIC_ITEM, color)
-
 class FunctionPathFinder(PathFinder):
     '''
     Subclass to generate paths between functions.
@@ -501,13 +535,6 @@ class FunctionPathFinder(PathFinder):
                     xrefs.append(f.startEA)
         return xrefs
     
-    #def colorize(self, node, color):
-    #    '''
-    #    Colorize the entire function.
-    #    '''
-    #    if idc.GetColor(node, idc.CIC_FUNC) != color:
-    #        idc.SetColor(node, idc.CIC_FUNC, color)
-
 class BlockPathFinder(PathFinder):
     '''
     Subclass to generate paths between code blocks inside a function.
@@ -552,18 +579,6 @@ class BlockPathFinder(PathFinder):
 
         return xrefs
 
-    def colorize(self, node, color):
-        '''
-        Colorize the entire code block.
-        '''
-        block = self.LookupBlock(node)
-        if block and idc.GetColor(block.startEA, idc.CIC_ITEM) != color:
-            ea = block.startEA
-            while ea < block.endEA:
-                idc.SetColor(ea, idc.CIC_ITEM, color)
-                ea += idaapi.decode_insn(ea)
-        
-
 class Find(object):
 
     def __init__(self, start=[], end=[], include=[], exclude=[], xrefs=[], noxrefs=[]):
@@ -580,11 +595,12 @@ class Find(object):
             if func:
                 results = []
 
-                if func.startEA == first_ea:
+                end_func = idaapi.get_func(self.end[0])
+                if end_func and end_func.startEA == self.end[0]:
                     pfclass = FunctionPathFinder
                 else:
                     pfclass = BlockPathFinder
-
+                print pfclass
                 
                 for destination in self.end:
                     pf = pfclass(destination)
@@ -592,6 +608,7 @@ class Find(object):
                         results += pf.paths_from(source, exclude=self.exclude, include=self.include, xrefs=self.xrefs, noxrefs=self.noxrefs)
                     del pf
 
+                print "RESULTS:", results
                 if results:
                     pg = PathFinderGraph(results)
                     pg.Show()
@@ -618,4 +635,8 @@ class Find(object):
         if isinstance(ea, type('')):
             return idc.LocByName(ea)
         return ea
+
+#if __name__ == "__main__":
+    #Find(['main'], ['strcpy'])
+    #Find('execute_other_requests', 'loc_408E80')
 
