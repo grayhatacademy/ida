@@ -77,7 +77,7 @@ class IDASim(object):
         if membase is not None:
             self.mmu.base(membase)
 
-        def __register_handlers(self):
+    def __register_handlers(self):
         '''
         Registers function names and handlers with the IDB function handler.
         For internal use only.

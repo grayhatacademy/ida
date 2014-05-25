@@ -216,7 +216,7 @@ class IDASimFunctionChooser(idaapi.Choose2):
         '''
         self.sim.Refresh()
         self.PopulateItems()
-            return n
+        return n
 
     def OnCommand(self, n, cmd_id):
         '''
