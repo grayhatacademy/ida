@@ -35,22 +35,33 @@ class StandaloneFunctionFinder(object):
                         ea += idaapi.cmd.size
 
                     if standalone_function:
-                        self.standalones.append(Function(start=func.startEA, end=func.endEA, xrefs=nxrefs))
+                        self.standalones.append(Function(start=func.startEA, end=func.endEA, xrefs=nxrefs, loop=self.has_loop(func)))
 
         self.standalones.sort(key=lambda f: f.xrefs, reverse=True)
+
+    def has_loop(self, func):
+        blocks = [func.startEA] + [block.endEA for block in idaapi.FlowChart(func)]
+        for block in blocks:
+            for xref in idautils.XrefsTo(block):
+                xref_func = idaapi.get_func(xref.frm)
+                if xref_func and xref_func.startEA == func.startEA:
+                    if xref.frm <= block:
+                        return True
+        return False
 
     def show(self):
         delim = '-'
         col1_title = "Function"
         col2_title = "Xrefs"
+        col3_title = "Has Loop(s)"
         max_str_len = len(col1_title)
 
         for func in self.standalones:
             if len(func.name) > max_str_len:
                 max_str_len = len(func.name)
 
-        fmt = "| %%-%ds | %%-10s |" % max_str_len
-        header = fmt % (col1_title, col2_title)
+        fmt = "| %%-%ds | %%-10s | %%-11s |" % max_str_len
+        header = fmt % (col1_title, col2_title, col3_title)
         delim_len = len(header)
 
         print ""
@@ -58,7 +69,7 @@ class StandaloneFunctionFinder(object):
         print header
         print delim * delim_len
         for func in self.standalones:
-            print fmt % (func.name, str(func.xrefs))
+            print fmt % (func.name, str(func.xrefs), str(func.loop))
         print delim * delim_len
         print "Found %d standalone functions with at least %d xrefs each" % (len(self.standalones), self.MIN_XREFS)
         print ""
@@ -70,7 +81,7 @@ def StandaloneFunctions(quiet=True):
     return [x.start for x in obj.standalones]
 
 class standalone_function_finder_t(idaapi.plugin_t):
-    
+
     flags = 0
     comment = "Finds functions that don't call any other functions"
     help = ''

@@ -121,7 +121,7 @@ class PathFinderGraph(idaapi.GraphViewer):
 
         includes = self.history.get_includes()
         excludes = self.history.get_excludes()
-        
+
         for path in self.results:
             parent_node = None
 
@@ -148,7 +148,7 @@ class PathFinderGraph(idaapi.GraphViewer):
                     self.AddEdge(parent_node, this_node)
                     if this_node not in self.edges[parent_node]:
                         self.edges[parent_node].append(this_node)
-                
+
                 # Update the parent node for the next loop
                 parent_node = this_node
                 if not self.edges.has_key(parent_node):
@@ -244,7 +244,7 @@ class PathFinderGraph(idaapi.GraphViewer):
                 print "%-50s  =>  %s" % (self.get_name_by_ea(xref_ea), self.get_name_by_ea(dst_ea))
             print "-" * 100
             print ""
-            
+
             idc.Jump(xref_locations[0][0])
         else:
             idc.Jump(node_ea)
@@ -300,6 +300,9 @@ class PathFinder(object):
     '''
     Base class for finding the path between two addresses.
     '''
+    # Subclass should override this with an appropriate method
+    # to perform colorization of nodes in the main IDA view.
+    COLORIZE = None
 
     # Limit the max recursion depth
     MAX_DEPTH = 500
@@ -323,7 +326,7 @@ class PathFinder(object):
 
     def __enter__(self):
         return self
-        
+
     def __exit__(self, t, v, traceback):
         return
 
@@ -383,7 +386,7 @@ class PathFinder(object):
                         if ex in p:
                             index = -1
                             break
-                
+
                 if include:
                     orig_index = index
                     index = -1
@@ -396,7 +399,7 @@ class PathFinder(object):
                 if good_xrefs:
                     orig_index = index
                     index = -1
-                    
+
                     for xref in good_xrefs:
                         if xref in p:
                             index = orig_index
@@ -410,7 +413,7 @@ class PathFinder(object):
                             index = -1
                             break
 
-                # Be sure to include the destinatin and source nodes in the final path
+                # Be sure to include the destination and source nodes in the final path
                 p = [self.destination] + p[:index+1]
                 # The path is in reverse order (destination -> source), so flip it
                 p = p[::-1]
@@ -442,7 +445,7 @@ class PathFinder(object):
         if i == 1 and not self.tree:
             self.build_call_tree(ea)
 
-        # Don't recurse past MAX_DEPTH    
+        # Don't recurse past MAX_DEPTH
         if i >= self.MAX_DEPTH:
             return
 
@@ -470,7 +473,7 @@ class PathFinder(object):
                 self.current_path.pop(-1)
 
         # Track the last call depth
-        self.last_depth = self.depth    
+        self.last_depth = self.depth
 
     def build_call_tree(self, ea):
         '''
@@ -498,7 +501,7 @@ class PathFinder(object):
                             new_nodes.append(reference)
                         elif not node_ptr.has_key(reference):
                             node_ptr[reference] = self.nodes[reference]
-            
+
             nodes = new_nodes
 
     def node_xrefs(self, node):
@@ -534,7 +537,7 @@ class FunctionPathFinder(PathFinder):
                 if f and f.startEA not in xrefs:
                     xrefs.append(f.startEA)
         return xrefs
-    
+
 class BlockPathFinder(PathFinder):
     '''
     Subclass to generate paths between code blocks inside a function.
@@ -553,7 +556,15 @@ class BlockPathFinder(PathFinder):
         dst_block = self.LookupBlock(destination)
 
         if dst_block:
+            self.COLORIZE = self._colorize_block
             super(BlockPathFinder, self).__init__(dst_block.startEA)
+
+    def _colorize_block(self, block_ea, color=idc.DEFCOLOR):
+        if self.block_table.has_key(block_ea):
+            ea = self.block_table[block_ea].startEA
+            while ea < self.block_table[block_ea].endEA:
+                idc.SetColor(ea, idc.CIC_ITEM, color)
+                ea = idc.NextAddr(ea)
 
     def LookupBlock(self, ea):
         try:
@@ -563,7 +574,7 @@ class BlockPathFinder(PathFinder):
                 if ea >= block.startEA and ea < block.endEA:
                     return block
         return None
-        
+
     def node_xrefs(self, node):
         '''
         Return a list of blocks that reference the provided block.
@@ -601,7 +612,7 @@ class Find(object):
                 else:
                     pfclass = BlockPathFinder
                 print pfclass
-                
+
                 for destination in self.end:
                     pf = pfclass(destination)
                     for source in self.start:
@@ -619,7 +630,7 @@ class Find(object):
         Converts the supplied object to a list, if it is not already a list.
 
         @obj - The object.
-    
+
         Returns a list.
         '''
         l = []
