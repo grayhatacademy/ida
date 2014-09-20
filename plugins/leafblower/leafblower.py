@@ -12,8 +12,13 @@ import idautils
 
 class LeafBlowerFunctionChooser(idaapi.Choose2):
 
+    MIN_XREFS = 25
+    MUST_HAVE_LOOP = True
+
     def __init__(self, lbobj):
         self.lb = lbobj
+        self.min_xrefs = self.MIN_XREFS
+        self.must_have_loop = self.MUST_HAVE_LOOP
 
         idaapi.Choose2.__init__(self, self.lb.TITLE, self.lb.COLUMNS)
         self.icon = 41
@@ -36,11 +41,44 @@ class LeafBlowerFunctionChooser(idaapi.Choose2):
     def OnClose(self):
         pass
 
+    def OnCommand(self, n, cmd):
+        if cmd == self.show_all_toggle_cmd:
+
+            if self.min_xrefs == self.MIN_XREFS:
+                self.min_xrefs = 0
+            if self.min_xrefs != self.MIN_XREFS:
+                self.min_xrefs = self.MIN_XREFS
+
+            if self.must_have_loop == self.MUST_HAVE_LOOP:
+                self.must_have_loop = False
+            else:
+                self.must_have_loop = self.MUST_HAVE_LOOP
+
+        elif cmd == self.rename_cmd:
+
+            if idc.AskYN(0, "Are you sure you want to rename all 'sub_XXXXXX' functions to 'leaf_XXXXXX'?") == 1:
+                for item in self.items:
+                    # Is this a leaf function?
+                    if item[-1] == True:
+                        current_name = item[0]
+                        if current_name.startswith('sub_'):
+                            new_name = current_name.replace('sub_', 'leaf_')
+                            idc.MakeName(idc.LocByName(current_name), new_name)
+
+        self.populate_items()
+        return 0
+
     def populate_items(self):
         self.items = []
 
         for function in self.lb.functions:
             candidates = []
+
+            if function.leaf:
+                if function.xrefs < self.min_xrefs:
+                    continue
+                if function.loop == False and self.must_have_loop == True:
+                    continue
 
             for candidate in function.candidates:
                 candidates.append(candidate)
@@ -55,17 +93,21 @@ class LeafBlowerFunctionChooser(idaapi.Choose2):
             else:
                 argc = "*"
 
-            if function.loop is None:
-                loops = "*"
-            else:
+            if function.leaf:
                 loops = str(function.loop)
+            else:
+                loops = "*"
 
             name = idc.Name(function.start)
 
-            self.items.append([name, xrefs, argc, loops, ','.join(candidates)])
+            self.items.append([name, xrefs, argc, loops, ', '.join(candidates), function.leaf])
 
     def show(self):
-        return self.Show(modal=False)
+        if self.Show(modal=False) < 0:
+            return False
+
+        self.show_all_toggle_cmd = self.AddCommand("Toggle 'show all leaf functions'")
+        self.rename_cmd = self.AddCommand("Rename all sub_XXXXXX leaf functions to 'leaf_XXXXXX'")
 
 class ArchitectureSettings(object):
 
@@ -123,6 +165,7 @@ class Function(object):
 
     PROTOTYPES = [
                     Prototype(name="atoi", argc=1),
+                    Prototype(name="atol", argc=1),
                     Prototype(name="strlen", argc=1),
                     Prototype(name="strcpy", argc=2),
                     Prototype(name="strcat", argc=2),
@@ -133,6 +176,7 @@ class Function(object):
                     Prototype(name="bzero", argc=2),
                     Prototype(name="strtol", argc=3),
                     Prototype(name="strncpy", argc=3),
+                    Prototype(name="strncat", argc=3),
                     Prototype(name="strncmp", argc=3),
                     Prototype(name="memcpy", argc=3),
                     Prototype(name="memmove", argc=3),
@@ -150,7 +194,7 @@ class Function(object):
 
     def __init__(self, **kwargs):
         self.argc = None
-        self.loop = None
+        self.loop = False
         self.leaf = False
         self.xrefs = None
         self.fmtarg = None
@@ -459,3 +503,4 @@ class leaf_blower_t(idaapi.plugin_t):
 
 def PLUGIN_ENTRY():
     return leaf_blower_t()
+
