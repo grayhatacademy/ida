@@ -2,7 +2,7 @@ IDA Plugins
 ===
 
 Collection of IDA plugins that I've written to help with embedded RE work.
-Unless otherwise specified, just drop the .py files into IDA's *plugins* directory.
+Unless otherwise specified, just drop the .py files into IDA's `plugins` directory.
 
 codatify
 --------
@@ -10,6 +10,16 @@ codatify
   * Defines ASCII strings that IDA's auto analysis missed
   * Defines functions/code that IDA's auto analysis missed
   * Converts all undefined bytes in the data segment into DWORDs (thus allowing IDA to resolve function and jump table pointers)
+
+fluorescence
+------------
+
+  * Highlights all call instructions in an IDB.
+
+leafblower
+----------
+
+  * Assists in identifying standard POSIX functions in MIPS/ARM code.
 
 localxrefs
 ----------
