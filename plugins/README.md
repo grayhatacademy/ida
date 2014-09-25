@@ -36,7 +36,7 @@ mipsrop
 
   * Allows you to search for suitable ROP gadgets in MIPS executable code (MIPS only)
 
-pathfinder
+alleycat
 ----------
 
   * Finds paths between two or more functions
