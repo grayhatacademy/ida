@@ -34,7 +34,7 @@ class fluorescence_blower_t(idaapi.plugin_t):
         return None
 
     def run(self, arg):
-            CallHighlighter().highlight()
+        CallHighlighter().highlight()
 
 def PLUGIN_ENTRY():
     return fluorescence_blower_t()
