@@ -4,12 +4,12 @@ rizzo.py
 Features
 ----------
 
-  * Identifies and re-names functions between two or more IDBs based on:
-    * Formal signatures (i.e., exact function signatures)
-    * References to unique string
-    * References to unique constants
-    * Fuzzy signatures (i.e., similar function signatures)
-    * Call graphs (e.g., identification by association)
+Identifies and re-names functions between two or more IDBs based on:
+  * Formal signatures (i.e., exact function signatures)
+  * References to unique string
+  * References to unique constants
+  * Fuzzy signatures (i.e., similar function signatures)
+  * Call graphs (e.g., identification by association)
 
 Usage
 -----
