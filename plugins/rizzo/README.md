@@ -16,11 +16,11 @@ Usage
 
 To generate signatures for functions in your current IDB:
 
-![Generating Rizzo signatures](../images/rizzo_generate.png)
+![Generating Rizzo signatures](../../images/rizzo_generate.png)
 
 To apply generated signatures to your current IDB:
 
-![Applying Rizzo signatures](../images/rizzo_apply.png)
+![Applying Rizzo signatures](../../images/rizzo_apply.png)
 
 Installation
 ------------

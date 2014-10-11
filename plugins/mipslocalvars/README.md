@@ -11,15 +11,15 @@ Usage
 
 A function's stack layout before running mipslocalvars:
 
-![Before mipslocalvars.py](../images/before_mipslocalvars.png)
+![Before mipslocalvars.py](../../images/before_mipslocalvars.png)
 
 Running mipslocalvars:
 
-![Running mipslocalvars.py](../images/how_to_run_mipslocalvars.png)
+![Running mipslocalvars.py](../../images/how_to_run_mipslocalvars.png)
 
 The function's stack layout after running mipslocalvars:
 
-![After mipslocalvars.py](../images/after_mipslocalvars.png)
+![After mipslocalvars.py](../../images/after_mipslocalvars.png)
 
 Installation
 ------------

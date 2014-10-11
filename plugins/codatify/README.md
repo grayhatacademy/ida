@@ -13,15 +13,15 @@ Usage
 
 Blob of data before running codatify:
 
-![Before codatify.py](../images/undefined_bytes.png)
+![Before codatify.py](../../images/undefined_bytes.png)
 
 Running codatify:
 
-![Running codatify.py](../images/how_to_use_codatify.png)
+![Running codatify.py](../../images/how_to_use_codatify.png)
 
 Blob of data after running codatify:
 
-![After codatify.py](../images/defined_bytes.png)
+![After codatify.py](../../images/defined_bytes.png)
 
 Installation
 ------------
