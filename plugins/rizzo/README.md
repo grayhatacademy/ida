@@ -22,6 +22,8 @@ To apply generated signatures to your current IDB:
 
 ![Applying Rizzo signatures](../../images/rizzo_apply.png)
 
+Some pre-generated signatures are provided in the included sub-directories.
+
 Installation
 ------------
 

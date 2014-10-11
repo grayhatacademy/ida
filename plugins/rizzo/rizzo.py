@@ -98,9 +98,6 @@ class RizzoFunctionDescriptor(object):
 class Rizzo(object):
     '''
     Workhorse class which performs the primary logic and functionality.
-
-    TODO: Apply function signatures based soley on unique strings and immediate references.
-          Do double-IDB test to check for false positive results.
     '''
 
     DEFAULT_SIGNATURE_FILE = "rizzo.sig"
