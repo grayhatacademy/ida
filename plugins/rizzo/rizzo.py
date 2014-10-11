@@ -351,7 +351,7 @@ class Rizzo(object):
         curname = idc.Name(ea)
         # Don't rename if the name is a special identifier, or if the ea has already been named
         # TODO: What's a better way to check for reserved name prefixes?
-        if curname.startswith('sub_') and name[:4] not in set(['sub_', 'loc_', 'unk_']):
+        if curname.startswith('sub_') and name.split('_')[0] not in set(['sub', 'loc', 'unk', 'dword', 'word', 'byte']):
             # Don't rename if the name already exists in the IDB
             if idc.LocByName(name) == idc.BADADDR:
                 if idc.MakeName(ea, name):
