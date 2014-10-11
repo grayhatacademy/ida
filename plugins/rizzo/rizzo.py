@@ -33,7 +33,7 @@ import idautils
 import os
 import sys
 import time
-import pickle
+import pickle       # http://natashenka.ca/pickle/
 import tempfile
 import collections
 
@@ -76,8 +76,13 @@ class RizzoBlockDescriptor(object):
         self.immediates = block[2]
         self.functions = block[3]
 
-    def match(self, nblock):
-        return (self.formal == nblock.formal and len(self.immediates) == len(nblock.immediates) and len(self.functions) == len(nblock.functions))
+    def match(self, nblock, fuzzy=False):
+        # TODO: Fuzzy matching at the block level gets close, but produces a higher number of
+        #       false positives; for example, it confuses hmac_md5 with hmac_sha1.
+        #return ((self.formal == nblock.formal or (fuzzy and self.fuzzy == nblock.fuzzy)) and
+        return (self.formal == nblock.formal and
+                len(self.immediates) == len(nblock.immediates) and
+                len(self.functions) == len(nblock.functions))
 
 class RizzoFunctionDescriptor(object):
     '''
@@ -168,7 +173,7 @@ class Rizzo(object):
                     func_name = idc.Name(cref)
                     if func_name:
                         functions.append(func_name)
-                        fuzzy.append("call")
+                        fuzzy.append("funcref")
             # If there are data references from the instruction, check to see if any of them
             # are strings. These are looked up in the pre-generated strings dictionary.
             #
@@ -184,8 +189,8 @@ class Rizzo(object):
                         formal.append(self.strings[dref].value)
                         fuzzy.append(self.strings[dref].value)
                     else:
-                        formal.append("data")
-                        fuzzy.append("data")
+                        formal.append("dataref")
+                        fuzzy.append("dataref")
             # If there are no data or code references from the instruction, use every operand as
             # part of the formal signature.
             #
@@ -336,37 +341,34 @@ class Rizzo(object):
         print "Found %d immediate matches in %.2f seconds." % (len(immediates), (end-start))
 
         # Return signature matches in the order we want them applied
-        return (formal, strings, immediates, fuzzy)
+        # The second tuple of each match is set to True if it is a fuzzy match, e.g.:
+        #
+        #   ((match, fuzzy), (match, fuzzy), ...)
+        return ((formal, False), (strings, False), (immediates, False), (fuzzy, True))
 
     def rename(self, ea, name):
         # Don't rely on the name in curfunc, as it could have already been renamed
         curname = idc.Name(ea)
         # Don't rename if the name is a special identifier, or if the ea has already been named
-        if not name.startswith('sub_') and not name.startswith('loc_') and curname.startswith('sub_'):
+        # TODO: What's a better way to check for reserved name prefixes?
+        if curname.startswith('sub_') and name[:4] not in set(['sub_', 'loc_', 'unk_']):
             # Don't rename if the name already exists in the IDB
             if idc.LocByName(name) == idc.BADADDR:
                 if idc.MakeName(ea, name):
-                    print "%s  =>  %s" % (curname, name)
+                    idc.SetFunctionFlags(ea, (idc.GetFunctionFlags(ea) | idc.FUNC_LIB))
+                    #print "%s  =>  %s" % (curname, name)
                     return 1
             #else:
             #    print "WARNING: Attempted to rename '%s' => '%s', but '%s' already exists!" % (curname, name, name)
         return 0
 
     def apply(self, extsigs):
-        '''
-        TODO: What to do about collisions? Want to:
-
-                o Take the most common name for each function and apply that
-                o But weight the naming, e.g., formal matches should be taken at face value.
-
-        In practice, the current system seems to work pretty well, but probably is producing some false positives.
-        '''
         count = 0
 
         start = time.time()
 
         # This applies formal matches first, then fuzzy matches
-        for match in self.match(extsigs):
+        for (match, fuzzy) in self.match(extsigs):
             # Keeps track of all function names that we've identified candidate functions for
             rename = {}
 
@@ -386,11 +388,7 @@ class Rizzo(object):
                     for cblock in curfunc.blocks:
                         cblock = RizzoBlockDescriptor(cblock)
 
-                        # TODO: Should we even bother checking fuzzy block signatures?
-                        #       It could find things that would otherwise be missed, but also
-                        #       introduces a greater possibility for false positive matches.
-                        if cblock.match(nblock):
-                        #if nblock.formal == cblock.formal and len(nblock.functions) == len(cblock.functions):
+                        if cblock.match(nblock, fuzzy):
                             if bm.has_key(cblock):
                                 del bm[cblock]
                                 duplicates.add(cblock)
@@ -432,6 +430,9 @@ def RizzoApply(sigfile=None):
     r.apply(s)
     end = time.time()
     print "Signatures applied in %.2f seconds" % (end-start)
+
+
+
 
 class RizzoPlugin(idaapi.plugin_t):
     flags = 0

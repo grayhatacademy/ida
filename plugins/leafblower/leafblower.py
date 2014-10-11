@@ -3,7 +3,7 @@
 # A plugin to help identify common POSIX functions such as printf, sprintf, memcmp, strcpy, etc.
 #
 # This plugin will really only work with RISC architectures, as it assumes a fixed instruction
-# size and that function arguments are passed via registers.
+# size, and that function arguments are passed via registers.
 #
 #################################################################################################
 import idc
@@ -290,6 +290,7 @@ class ArgParser(object):
             if argv.union(notargv) == set(self.arch.argv):
                 break
 
+            # TODO: Use idc.NextHead(ea) instead...
             ea += self.arch.insn_size
 
         return len(argv)

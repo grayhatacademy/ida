@@ -29,7 +29,7 @@ For practical purposes, there is a maximum depth limit imposed on path searches.
 ```
 Python>print ALLEYCAT_LIMIT
 10000
-Python>ALLEYCAT_LIMIT = 25000
+Python>ALLEYCAT_LIMIT = 2500
 ```
 
 Scripting
