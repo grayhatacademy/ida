@@ -42,6 +42,8 @@ class RizzoSignatures(object):
     Simple wrapper class for storing signature info.
     '''
 
+    SHOW = []
+
     def __init__(self):
         self.fuzzy = {}
         self.formal = {}
@@ -53,6 +55,22 @@ class RizzoSignatures(object):
         self.formaldups = set()
         self.stringdups = set()
         self.immediatedups = set()
+
+    def show(self):
+        if not self.SHOW:
+            return
+
+        print "\n\nGENERATED FORMAL SIGNATURES FOR:"
+        for (key, ea) in self.formal.iteritems():
+            func = RizzoFunctionDescriptor(self.formal, self.functions, key)
+            if func.name in self.SHOW:
+                print func.name
+
+        print "\n\nGENERATRED FUZZY SIGNATURES FOR:"
+        for (key, ea) in self.fuzzy.iteritems():
+            func = RizzoFunctionDescriptor(self.fuzzy, self.functions, key)
+            if func.name in self.SHOW:
+                print func.name
 
 class RizzoStringDescriptor(object):
     '''
@@ -147,7 +165,7 @@ class Rizzo(object):
         immediates = []
 
         ea = block.startEA
-        while ea <= block.endEA:
+        while ea < block.endEA:
             idaapi.decode_insn(ea)
 
             # Get a list of all data/code references from the current instruction
@@ -287,6 +305,9 @@ class Rizzo(object):
         signatures.stringdups = set()
         signatures.immediatedups = set()
 
+        # DEBUG
+        signatures.show()
+
         return signatures
 
     def match(self, extsigs):
@@ -299,8 +320,8 @@ class Rizzo(object):
         start = time.time()
         for (extsig, ext_func_ea) in extsigs.formal.iteritems():
             if self.signatures.formal.has_key(extsig):
-                curfunc = RizzoFunctionDescriptor(self.signatures.formal, self.signatures.functions, extsig)
                 newfunc = RizzoFunctionDescriptor(extsigs.formal, extsigs.functions, extsig)
+                curfunc = RizzoFunctionDescriptor(self.signatures.formal, self.signatures.functions, extsig)
                 formal[curfunc] = newfunc
         end = time.time()
         print "Found %d formal matches in %.2f seconds." % (len(formal), (end-start))
