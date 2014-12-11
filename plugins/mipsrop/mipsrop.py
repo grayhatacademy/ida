@@ -549,7 +549,7 @@ class MIPSROPFinder(object):
 				while ea <= end_ea:
 					summary.append(idc.GetDisasm(ea))
 					mnem = idc.GetMnem(ea)
-					if mnem[0].lower() in ['j', 'b']:
+					if len(mnem) > 0 and mnem[0].lower() in ['j', 'b']:
 						summary.append(idc.GetDisasm(ea+self.INSIZE))
 						break
 
