@@ -53,6 +53,12 @@
 # Regex is supported for any of the instruction mnemonics or operands; for convenience, the dollar signs in 
 # front of register names are automatically escaped.
 #
+# If .set_base(int) is called with a non-zero value then the output will include base, offset and address.
+# Example
+# -------------------------------------------------------------------------------------------------------------------------------------------
+# |  Base       + Offset     =  Address     |  Action                                              |  Control Jump                          |
+# -------------------------------------------------------------------------------------------------------------------------------------------
+#
 # Craig Heffner
 # Tactical Network Solutions
 
@@ -93,13 +99,16 @@ class ROPGadget(object):
 	Class for storing information about a specific ROP gadget.
 	'''
 	
-	def __init__(self, control, jump, operation=None, description="ROP gaget"):
-		self.h = '-' * 112
+	def __init__(self, control, jump, operation=None, description="ROP gaget", base=0):
 		self.control = control
 		self.exit = jump
 		self.operation = operation
 		self.description = description
-		
+		self.base = base
+		self.h = '-' * 112
+		if self.base != 0:
+			self.h += '-' * 27
+
 		if self.control.opnd1:
 			self.control.register = self.control.opnd1
 		else:
@@ -121,13 +130,19 @@ class ROPGadget(object):
 
 
 	def header(self):
-		return self.h + "\n|  Address     |  Action                                              |  Control Jump                          |\n" + self.h
+		if self.base != 0:
+			return self.h + "\n|  Base       + Offset     =  Address       |  Action                                              |  Control Jump                          |\n" + self.h
+		else:
+			return self.h + "\n|  Address     |  Action                                              |  Control Jump                          |\n" + self.h
 
 	def footer(self):
 		return self.h
 
 	def __str__(self):
-		return "|  0x%.8X  |  %-50s  |  %-5s %-30s  |" % (self.entry.ea, str(self.operation), self.exit.mnem, self.control.register)
+		if self.base != 0:
+			return "|  0x%.8X + 0x%.8X = 0x%.8X |  %-50s  |  %-5s %-30s  |" % (self.base, self.entry.ea, self.entry.ea + self.base, str(self.operation), self.exit.mnem, self.control.register)
+		else:
+			return "|  0x%.8X  |  %-50s  |  %-5s %-30s  |" % (self.entry.ea, str(self.operation), self.exit.mnem, self.control.register)
 
 class BowcasterBuilder(object):
 	'''
@@ -176,6 +191,7 @@ class MIPSROPFinder(object):
 		self.system_calls = []
 		self.double_jumps = []
 		self.controllable_jumps = []
+		self.base = 0
 		start = 0
 		end = 0
 
@@ -335,7 +351,7 @@ class MIPSROPFinder(object):
 							jump_ea = self._find_next_instruction_ea(ea+ins_size, jump, end_ea, no_baddies=True, regex=True, dont_overwrite=musnt_clobber)
 							if jump_ea != idc.BADADDR:
 								jump_instruction = self._get_instruction(jump_ea)
-								controllable_jumps.append(ROPGadget(control_instruction, jump_instruction, description="Controllable Jump"))
+								controllable_jumps.append(ROPGadget(control_instruction, jump_instruction, description="Controllable Jump", base=self.base))
 								ea = jump_ea
 					
 					ea += ins_size
@@ -357,7 +373,7 @@ class MIPSROPFinder(object):
 				if a0_ea != idc.BADADDR:
 					control_ea = self._find_prev_instruction_ea(ea-self.INSIZE, system_load, ea-(self.SEARCH_DEPTH*self.INSIZE))
 					if control_ea != idc.BADADDR:
-						system_calls.append(ROPGadget(self._get_instruction(control_ea), self._get_instruction(ea), self._get_instruction(a0_ea), description="System call"))
+						system_calls.append(ROPGadget(self._get_instruction(control_ea), self._get_instruction(ea), self._get_instruction(a0_ea), description="System call", base=self.base))
 
 				ea += self.INSIZE
 			else:
@@ -400,7 +416,7 @@ class MIPSROPFinder(object):
 					gadget_ea = ea
 		
 			if gadget_ea != idc.BADADDR:
-				gadget_list.append(ROPGadget(controllable_jump.entry, controllable_jump.exit, self._get_instruction(gadget_ea)))
+				gadget_list.append(ROPGadget(controllable_jump.entry, controllable_jump.exit, self._get_instruction(gadget_ea), base=self.base))
 
 		return gadget_list
 
@@ -598,6 +614,12 @@ class MIPSROPFinder(object):
 		bc = BowcasterBuilder(gadgets)
 		bc.build_code()
 
+	def set_base(self, base=0):
+		'''
+		Set base address used for display
+		'''
+		self.base = base
+
 	def help(self):
 		'''
 		Show help info.
@@ -628,6 +650,11 @@ class MIPSROPFinder(object):
 		print "mipsrop.tails()"
 		print delim
 		print self.tails.__doc__
+
+		print ""
+		print "mipsrop.set_base()"
+		print delim
+		print self.set_base.__doc__
 
 		print ""
 		print "mipsrop.summary()"
