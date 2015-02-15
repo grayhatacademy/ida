@@ -34,7 +34,6 @@ import os
 import sys
 import time
 import pickle       # http://natashenka.ca/pickle/
-import tempfile
 import collections
 
 class RizzoSignatures(object):
@@ -124,7 +123,7 @@ class Rizzo(object):
         if sigfile:
             self.sigfile = sigfile
         else:
-            self.sigfile = os.path.join(tempfile.gettempdir(), self.DEFAULT_SIGNATURE_FILE)
+            self.sigfile = self.DEFAULT_SIGNATURE_FILE
 
         # Useful for quickly identifying string xrefs from individual instructions
         self.strings = {}
