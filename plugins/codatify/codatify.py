@@ -29,7 +29,7 @@ class Codatify(object):
                 break
             else:
                 seg = idc.NextSeg(seg)
-    
+
         return ea
 
     # Creates ASCII strings
@@ -54,13 +54,13 @@ class Codatify(object):
         ea = self.get_start_ea(self.DATA)
         if ea == idc.BADADDR:
             ea = idc.FirstSeg()
-        
+
         print "Converting remaining data to DWORDs...",
-    
+
         while ea != idc.BADADDR:
             flags = idc.GetFlags(ea)
-                    
-            if idc.isUnknown(flags) or idc.isByte(flags):
+
+            if (idc.isUnknown(flags) or idc.isByte(flags)) and ((ea % 4) == 0):
                 idc.MakeDword(ea)
                 idc.OpOff(ea, 0, 0)
 
@@ -104,7 +104,7 @@ class Codatify(object):
 
         if self.get_start_ea(self.DATA) == idc.BADADDR:
             print "WARNING: No data segments defined! I don't know where the code segment ends and the data segment begins."
-    
+
 
         while ea != idc.BADADDR:
             try:
@@ -119,9 +119,9 @@ class Codatify(object):
                             code_count += 1
             except:
                 pass
-            
+
             ea = idc.NextAddr(ea)
-    
+
         print "Created %d new functions and %d new code blocks\n" % (func_count, code_count)
 
 
