@@ -142,8 +142,8 @@ class localizedxrefs_t(idaapi.plugin_t):
 	wanted_name = "Localized Xrefs"
 	wanted_hotkey = ""
 
-	DELIM = '-' * 86
-	HEADER = '\nXrefs to %s from %s:'
+	DELIM = '-' * 86 + '\n'
+	HEADER = '\nXrefs to %s from %s:\n'
 
 	def init(self):
 		self.menu_context = idaapi.add_menu_item("Jump/", "List local xrefs", "Alt-8", 0, self.run, (None,))
@@ -164,18 +164,18 @@ class localizedxrefs_t(idaapi.plugin_t):
 		offsets.sort()
 
 		if r.highlighted:
-			print self.HEADER % (r.highlighted, r.function)
-			print self.DELIM
+			idaapi.msg(self.HEADER % (r.highlighted, r.function))
+			idaapi.msg(self.DELIM)
 			
 			for ea in offsets:
 				info = r.xrefs[ea]
 	
 				if not fmt:
-					fmt = "%%s   %%s   %%-%ds   %%s" % (len(info['offset']) + 15)
+					fmt = "%%s   %%s   %%-%ds   %%s\n" % (len(info['offset']) + 15)
 
-				print fmt % (info['direction'], info['type'], info['offset'], info['text'])
+				idaapi.msg(fmt % (info['direction'], info['type'], info['offset'], info['text']))
 	
-			print self.DELIM
+			idaapi.msg(self.DELIM)
 
 def PLUGIN_ENTRY():
 	return localizedxrefs_t()
