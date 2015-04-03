@@ -68,6 +68,8 @@ class Codatify(object):
 
         print "done."
 
+        self._fix_data_offsets()
+
     def pointify(self):
         counter = 0
 
@@ -89,6 +91,23 @@ class Codatify(object):
                     #    print "Failed to create name '%s'!" % new_name
 
         print "renamed %d pointers" % counter
+
+    def _fix_data_offsets(self):
+        ea = 0
+        count = 0
+
+        print "Fixing unresolved offset xrefs...",
+
+        while ea != idaapi.BADADDR:
+            (ea, n) = idaapi.find_notype(ea, idaapi.SEARCH_DOWN)
+            if idaapi.decode_insn(ea):
+                for i in range(0, len(idaapi.cmd.Operands)):
+                    op = idaapi.cmd.Operands[i]
+                    if op.type == idaapi.o_imm and idaapi.getseg(op.value):
+                        idaapi.add_dref(ea, op.value, (idaapi.dr_O | idaapi.XREF_USER))
+                        count += 1
+
+        print "created %d new data xrefs" % count
 
     # Creates functions and code blocks
     def codeify(self, ea=idc.BADADDR):
