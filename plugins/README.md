@@ -1,8 +1,15 @@
 IDA Plugins
 ===
 
-Collection of IDA plugins that I've written to help with embedded RE work.
-Unless otherwise specified, just drop the .py files into IDA's `plugins` directory.
+Collection of IDA plugins that I've written to help with RE work.
+
+To install all plugins, run:
+
+```
+$ python ./install.py /path/to/your/ida/install/directory
+```
+
+To install only selected plugins, just drop the .py file(s) into IDA's `plugins` directory.
 
 alleycat
 ----------
