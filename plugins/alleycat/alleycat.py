@@ -188,11 +188,11 @@ class AlleyCatGraph(idaapi.GraphViewer):
         if not idaapi.GraphViewer.Show(self):
             return False
         else:
-            self.cmd_undo = self.AddCommand("Undo", "U")
-            self.cmd_redo = self.AddCommand("Redo", "R")
-            self.cmd_reset = self.AddCommand("Reset graph", "G")
-            self.cmd_exclude = self.AddCommand("Exclude node", "X")
-            self.cmd_include = self.AddCommand("Include node", "I")
+            self.cmd_undo = self.AddCommand("Undo", "")
+            self.cmd_redo = self.AddCommand("Redo", "")
+            self.cmd_reset = self.AddCommand("Reset graph", "")
+            self.cmd_exclude = self.AddCommand("Exclude node", "")
+            self.cmd_include = self.AddCommand("Include node", "")
             return True
 
     def OnRefresh(self):
