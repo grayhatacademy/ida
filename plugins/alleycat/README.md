@@ -19,17 +19,18 @@ You will be prompted again to choose another function; you may continue this pro
 
 The call graph is interactive; double-clicking on a graph node will jump to that location in IDA's disassembly window. You may also dynamically change which nodes are displayed at any time using the following hotkeys:
 
-  * To only show paths that traverse a particular node, press `I` and then click on the node.
-  * To exclude all paths that traverse a particular node, press `X` and then click on the node.
-  * To undo any of the above actions, press `U`.
-  * To reset the graph, press `R`.
+  * To only show paths that traverse a particular node: right-click the graph, select `Include node`, and then click on the node.
+  * To exclude all paths that traverse a particular node: right-click the graph, select `Exclude node` and then click on the node.
+  * To undo any of the above actions: right-click the graph, and select `Undo`.
+  * To redo an undo: right-click the graph, and select `Redo`.
+  * To reset the graph: right-click the graph, and select `Reset graph`.
 
 For practical purposes, there is a maximum depth limit imposed on path searches. You can increase or decrease this limit in the IDAPython terminal:
 
 ```
-Python>print ALLEYCAT_LIMIT
+Python> print ALLEYCAT_LIMIT
 10000
-Python>ALLEYCAT_LIMIT = 2500
+Python> ALLEYCAT_LIMIT = 2500
 ```
 
 Scripting
@@ -38,14 +39,14 @@ Scripting
 To generate a list of unique paths between two functions, use the `AlleyCat` class:
 
 ```
-Python>print AlleyCat(ScreenEA(), idc.LocByName('strcpy')).paths
+Python> print AlleyCat(ScreenEA(), idc.LocByName('strcpy')).paths
 ```
 
 To create an interactive graph, use the `AlleyCatGraph` class:
 
 ```
-Python>paths = AlleyCat(ScreenEA(), idc.LocByName('strcpy'))
-Python>AlleyCatGraph(paths)
+Python> paths = AlleyCat(ScreenEA(), idc.LocByName('strcpy'))
+Python> AlleyCatGraph(paths)
 ```
 
 Installation
