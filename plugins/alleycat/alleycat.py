@@ -468,7 +468,7 @@ class AlleyCatGraph(idaapi.GraphViewer):
 
     def highlight(self, ea):
         # Highlights an entire code block
-        self.colorize_node(ea, 0xCC00CC)
+        self.colorize_node(ea, 0x00FF00)
 
     def unhighlight(self, ea):
         # Unhighlights an entire code block

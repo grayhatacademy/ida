@@ -228,7 +228,7 @@ class IDAFunctionProfilerPlugin(idaapi.plugin_t):
     wanted_hotkey = ""
 
     def init(self):
-        self.menu_context_2 = idaapi.add_menu_item("View/Open subviews/", "Xrefs from the current function", "Alt-2", 0, self.run, (True,))
+        self.menu_context_2 = idaapi.add_menu_item("View/Open subviews/", "Xrefs from the current function", "", 0, self.run, (True,))
         self.menu_context_1 = idaapi.add_menu_item("View/Open subviews/", "All function xrefs", "", 0, self.run, (False,))
         return idaapi.PLUGIN_KEEP
 

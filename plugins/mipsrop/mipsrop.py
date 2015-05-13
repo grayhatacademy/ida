@@ -50,7 +50,7 @@
 # and the effective register that is jumped to after that instruction is executed.
 #
 # The specified instruction can be a full instruction, such as the example above, or a partial instruction.
-# Regex is supported for any of the instruction mnemonics or operands; for convenience, the dollar signs in 
+# Regex is supported for any of the instruction mnemonics or operands; for convenience, the dollar signs in
 # front of register names are automatically escaped.
 #
 # If .set_base(int) is called with a non-zero value then the output will include base, offset and address.
@@ -98,7 +98,7 @@ class ROPGadget(object):
 	'''
 	Class for storing information about a specific ROP gadget.
 	'''
-	
+
 	def __init__(self, control, jump, operation=None, description="ROP gaget", base=0):
 		self.control = control
 		self.exit = jump
@@ -118,7 +118,7 @@ class ROPGadget(object):
 			self.exit.register = self.exit.opnd1
 		else:
 			self.exit.register = self.exit.opnd0
-		
+
 		if self.operation:
 			if self.operation.ea < self.control.ea:
 				self.entry = self.operation
@@ -159,7 +159,7 @@ class BowcasterBuilder(object):
 	def build_code(self):
 		keys = self.gadgets.keys()
 		keys.sort()
-	
+
 		for key in keys[::-1]:
 			last_instruction = False
 			ea = self.gadgets[key]
@@ -184,7 +184,7 @@ class MIPSROPFinder(object):
         DATA = 3
 	INSIZE = 4
         SEARCH_DEPTH = 25
-	
+
 	def __init__(self):
 		self.base = 0
 
@@ -209,7 +209,7 @@ class MIPSROPFinder(object):
 			if self.start == idc.BADADDR:
 				self.start = start
 		self.end = end
-	
+
 	def _get_segments(self, attr):
 		segments = []
 		start = idc.BADADDR
@@ -278,7 +278,7 @@ class MIPSROPFinder(object):
 				ea += self.INSIZE
 
 		return False
-		
+
 	def _find_prev_instruction_ea(self, start_ea, instruction, end_ea=0, no_baddies=True, regex=False, dont_overwrite=[]):
 		instruction_ea = idc.BADADDR
 		ea = start_ea
@@ -349,7 +349,7 @@ class MIPSROPFinder(object):
 
 					control_instruction = self._get_instruction(ea)
 					control_register = control_instruction.operands[1]
-					
+
 					if control_register:
 						for jump in jumps:
 							jump_ea = self._find_next_instruction_ea(ea+ins_size, jump, end_ea, no_baddies=True, regex=True, dont_overwrite=musnt_clobber)
@@ -357,7 +357,7 @@ class MIPSROPFinder(object):
 								jump_instruction = self._get_instruction(jump_ea)
 								controllable_jumps.append(ROPGadget(control_instruction, jump_instruction, description="Controllable Jump", base=self.base))
 								ea = jump_ea
-					
+
 					ea += ins_size
 
 		return controllable_jumps
@@ -373,7 +373,7 @@ class MIPSROPFinder(object):
 				a0_ea = self._find_next_instruction_ea(ea+self.INSIZE, stack_arg_zero, ea+self.INSIZE)
 				if a0_ea == idc.BADADDR:
 					a0_ea = self._find_prev_instruction_ea(ea, stack_arg_zero, ea-(self.SEARCH_DEPTH*self.INSIZE))
-				
+
 				if a0_ea != idc.BADADDR:
 					control_ea = self._find_prev_instruction_ea(ea-self.INSIZE, system_load, ea-(self.SEARCH_DEPTH*self.INSIZE))
 					if control_ea != idc.BADADDR:
@@ -387,7 +387,7 @@ class MIPSROPFinder(object):
 
 	def _find_double_jumps(self, start_ea, end_ea):
 		double_jumps = []
-		
+
 		for i in range(0, len(self.controllable_jumps)):
 			g1 = self.controllable_jumps[i]
 			if g1.exit.mnem != 'jalr':
@@ -418,7 +418,7 @@ class MIPSROPFinder(object):
 				ea = self._find_prev_instruction_ea(controllable_jump.entry.ea, gadget, controllable_jump.entry.ea-(self.SEARCH_DEPTH*self.INSIZE), no_baddies=True, regex=True, dont_overwrite=[controllable_jump.entry.opnd1])
 				if ea != idc.BADADDR:
 					gadget_ea = ea
-		
+
 			if gadget_ea != idc.BADADDR:
 				gadget_list.append(ROPGadget(controllable_jump.entry, controllable_jump.exit, self._get_instruction(gadget_ea), base=self.base))
 
@@ -433,7 +433,7 @@ class MIPSROPFinder(object):
 
 		if gadgets:
 			print gadgets[0].footer()
-		
+
 		print "Found %d matching gadgets" % (len(gadgets))
 
 	def _get_marked_gadgets(self):
@@ -595,7 +595,7 @@ class MIPSROPFinder(object):
 			print delim
 			print line_fmt % (headings['name'], headings['offset'], headings['summary'])
 			print delim
-			
+
 			for i in range(0, len(gadget_keys)):
 				line_count = 0
 				marked_comment = gadget_keys[i]
@@ -604,7 +604,7 @@ class MIPSROPFinder(object):
 				else:
 					offset = "0x%.8X" % rop_gadgets[marked_comment]
 				summary = summaries[i]
-				
+
 				for line in summary:
 					if line_count == 0:
 						print line_fmt % (marked_comment, offset, line)
@@ -635,7 +635,7 @@ class MIPSROPFinder(object):
 		Show help info.
 		'''
 		delim = "---------------------------------------------------------------------" * 2
-		
+
 		print ""
 		print "mipsrop.find(instruction_string)"
 		print delim
@@ -680,7 +680,7 @@ class mipsropfinder_t(idaapi.plugin_t):
 	wanted_hotkey = ""
 
 	def init(self):
-		self.menu_context = idaapi.add_menu_item("Search/", "mips rop gadgets", "Alt-1", 0, self.run, (None,))
+		self.menu_context = idaapi.add_menu_item("Search/", "mips rop gadgets", "", 0, self.run, (None,))
 		return idaapi.PLUGIN_KEEP
 
 	def term(self):
@@ -690,7 +690,7 @@ class mipsropfinder_t(idaapi.plugin_t):
 	def run(self, arg):
 		global mipsrop
 		mipsrop = MIPSROPFinder()
-                
+
 def PLUGIN_ENTRY():
         return mipsropfinder_t()
 

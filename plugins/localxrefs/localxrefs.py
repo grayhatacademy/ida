@@ -2,7 +2,7 @@
 #
 # Useful, for example, to find instructions that use a particular register, or that reference a literal value.
 #
-# Invoke by highlighting the desired text in IDA, then going to Jump->List local xrefs, or by pressing Alt+8.
+# Invoke by highlighting the desired text in IDA, then going to Jump->List local xrefs.
 # Highlighting is also supported; once xrefs are found, type the following in the Python command window:
 #
 #	Python> localxrefs.highlight()       <-- Highlight all xrefs
@@ -60,7 +60,7 @@ class LocalXrefs(object):
 			comment = None
 
 			idaapi.decode_insn(ea)
-			
+
 			mnem = idc.GetMnem(ea)
 
 			if self.highlighted in mnem:
@@ -72,7 +72,7 @@ class LocalXrefs(object):
 						if name and self.highlighted in name:
 							match = True
 							break
-			else:	
+			else:
 				while True:
 					opnd = idc.GetOpnd(ea, i)
 					if opnd:
@@ -133,8 +133,8 @@ class LocalXrefs(object):
 
 	def unhighlight(self):
 		self.highlight(False)
-		
-	
+
+
 class localizedxrefs_t(idaapi.plugin_t):
 	flags = 0
 	comment = "IDA Localized Xrefs"
@@ -146,7 +146,7 @@ class localizedxrefs_t(idaapi.plugin_t):
 	HEADER = '\nXrefs to %s from %s:\n'
 
 	def init(self):
-		self.menu_context = idaapi.add_menu_item("Jump/", "List local xrefs", "Alt-8", 0, self.run, (None,))
+		self.menu_context = idaapi.add_menu_item("Jump/", "List local xrefs", "", 0, self.run, (None,))
 		return idaapi.PLUGIN_KEEP
 
 	def term(self):
@@ -166,15 +166,15 @@ class localizedxrefs_t(idaapi.plugin_t):
 		if r.highlighted:
 			idaapi.msg(self.HEADER % (r.highlighted, r.function))
 			idaapi.msg(self.DELIM)
-			
+
 			for ea in offsets:
 				info = r.xrefs[ea]
-	
+
 				if not fmt:
 					fmt = "%%s   %%s   %%-%ds   %%s\n" % (len(info['offset']) + 15)
 
 				idaapi.msg(fmt % (info['direction'], info['type'], info['offset'], info['text']))
-	
+
 			idaapi.msg(self.DELIM)
 
 def PLUGIN_ENTRY():

@@ -1,6 +1,6 @@
 # IDA plugin that converts all data in data segments to defined data types, and all data in code segments to code.
 #
-# Use by going to Options->Define data and code, or use the Alt+3 hotkey.
+# Use by going to Options->Define data and code.
 #
 # Craig Heffner
 # Tactical Network Solutions
@@ -153,8 +153,8 @@ class codatify_t(idaapi.plugin_t):
     wanted_hotkey = ""
 
     def init(self):
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "Alt-3", 0, self.fix_code, (None,))
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "Alt-4", 0, self.fix_data, (None,))
+        self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
+        self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
         return idaapi.PLUGIN_KEEP
 
     def term(self):
