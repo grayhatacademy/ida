@@ -64,7 +64,6 @@ class AlleyCat(object):
             # exceeded ALLEYCAT_LIMIT.
             if len(partial_paths[0]) < self.limit:
                 for xref in idautils.XrefsTo(callee):
-                    #caller = idaapi.get_func(xref.frm)
                     caller = self._get_code_block(xref.frm)
                     if caller and caller.startEA not in callers:
                         callers.add(caller.startEA)
@@ -257,7 +256,7 @@ class AlleyCatGraph(idaapi.GraphViewer):
 
     def OnRefresh(self):
         # Clear the graph before refreshing
-        self.Clear()
+        self.clear()
         self.nodes_ea2id = {}
         self.nodes_id2ea = {}
         self.edges = {}
@@ -299,6 +298,9 @@ class AlleyCatGraph(idaapi.GraphViewer):
                 parent_node = this_node
                 if not self.edges.has_key(parent_node):
                     self.edges[parent_node] = []
+
+                # Highlight this node in the disassembly window
+                self.highlight(ea)
 
             try:
                 # Track the first, last, and next to last nodes in each path for
@@ -395,6 +397,11 @@ class AlleyCatGraph(idaapi.GraphViewer):
         else:
             idc.Jump(node_ea)
 
+    def OnClose(self):
+        # TODO: Add a 'do not ask again' feature?
+        if idc.AskYN(1, "Path nodes have been highlighted in the disassembly window. Undo highlighting?") == 1:
+            self.unhighlight_all()
+
     def match_xref_source(self, xref, source):
         # TODO: This must be modified if support for graphing function blocks is added.
         return ((xref.type != idc.fl_F) and (idc.GetFunctionAttr(xref.frm, idc.FUNCATTR_START) == source))
@@ -427,6 +434,11 @@ class AlleyCatGraph(idaapi.GraphViewer):
 
         return ea
 
+    def clear(self):
+        # Clears the graph and unhighlights the disassembly
+        self.Clear()
+        self.unhighlight_all()
+
     def get_name_by_ea(self, ea):
         '''
         Get the name of the specified address.
@@ -441,6 +453,32 @@ class AlleyCatGraph(idaapi.GraphViewer):
             if not name:
                 name = "0x%X" % ea
         return name
+
+    def colorize_node(self, ea, color):
+        # Colorizes an entire code block
+        func = idaapi.get_func(ea)
+        if func:
+            for block in idaapi.FlowChart(func):
+                if block.startEA <= ea and block.endEA > ea:
+                    ea = block.startEA
+                    while ea < block.endEA:
+                        idaapi.set_item_color(ea, color)
+                        ea = idc.NextHead(ea)
+                    break
+
+    def highlight(self, ea):
+        # Highlights an entire code block
+        self.colorize_node(ea, 0xCC00CC)
+
+    def unhighlight(self, ea):
+        # Unhighlights an entire code block
+        self.colorize_node(ea, idc.DEFCOLOR)
+
+    def unhighlight_all(self):
+        # Unhighlights all code blocks
+        for path in self.results:
+            for ea in path:
+                self.unhighlight(ea)
 
 class idapathfinder_t(idaapi.plugin_t):
 
@@ -468,7 +506,7 @@ class idapathfinder_t(idaapi.plugin_t):
                                 self.FindPathsToMany,
                                 (None,)))
         self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths to the current code block",
+                                "Find paths in the current function to the current code block",
                                 "",
                                 0,
                                 self.FindPathsToCodeBlock,

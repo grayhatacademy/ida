@@ -4,6 +4,7 @@ alleycat.py
 Features
 --------
 
+  * Finds paths to a given code block inside a function
   * Finds paths between two or more functions
   * Generates interactive call graphs
   * Fully scriptable
@@ -36,16 +37,22 @@ Python> ALLEYCAT_LIMIT = 2500
 Scripting
 ---------
 
-To generate a list of unique paths between two functions, use the `AlleyCat` class:
+To generate a list of unique paths between two functions, use the `AlleyCatFunctionPaths` class:
 
 ```
-Python> print AlleyCat(ScreenEA(), idc.LocByName('strcpy')).paths
+Python> print AlleyCatFunctionPaths(ScreenEA(), idc.LocByName('strcpy')).paths
+```
+
+To generate a list of unique paths from the between two code blocks inside a function, use the `AlleyCatCodePaths` class:
+
+```
+Python> print AlleyCatCodePaths(idaapi.get_func(idc.ScreenEA()).startEA, idc.ScreenEA())
 ```
 
 To create an interactive graph, use the `AlleyCatGraph` class:
 
 ```
-Python> paths = AlleyCat(ScreenEA(), idc.LocByName('strcpy'))
+Python> paths = AlleyCatFunctionPaths(ScreenEA(), idc.LocByName('strcpy')).paths
 Python> AlleyCatGraph(paths)
 ```
 
