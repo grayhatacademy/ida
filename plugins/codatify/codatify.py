@@ -16,7 +16,9 @@ class Codatify(object):
     SEARCH_DEPTH = 25
 
     def __init__(self):
-        pass
+        if self.get_start_ea(self.DATA) == idc.BADADDR:
+            if idc.AskYN(0, "There are no data segments defined! This probably won't end well. Continue?") != 1:
+                raise Exception("Action cancelled by user.")
 
     # Get the start of the specified segment type (2 == code, 3 == data)
     def get_start_ea(self, attr):
@@ -120,10 +122,6 @@ class Codatify(object):
                 ea = idc.FirstSeg()
 
         print "\nLooking for undefined code starting at: %s:0x%X" % (idc.SegName(ea), ea)
-
-        if self.get_start_ea(self.DATA) == idc.BADADDR:
-            print "WARNING: No data segments defined! I don't know where the code segment ends and the data segment begins."
-
 
         while ea != idc.BADADDR:
             try:
