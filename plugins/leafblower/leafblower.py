@@ -147,7 +147,14 @@ class ArchitectureSpecific(object):
                 break
 
         if self.argv is None:
-            raise Exception("Unknown/unsupported architecture!")
+            #print "WARNING: Unknown/unsupported architecture. Architecture specific analysis will be disabled."
+            self.argv = []
+            self.registers = []
+            self.delay_slot = False
+            self.insn_size = 0
+            self.unknown = True
+        else:
+            self.unknown = False
 
 class Prototype(object):
 
@@ -261,6 +268,9 @@ class ArgParser(object):
         notargv = set()
         ea = function.startEA
 
+        if self.arch.unknown:
+            return 0
+
         while ea < function.endEA:
             idaapi.decode_insn(ea)
             features = idaapi.cmd.get_canon_feature()
@@ -308,6 +318,9 @@ class ArgParser(object):
         idaapi.decode_insn(ea)
         features = idaapi.cmd.get_canon_feature()
 
+        if self.arch.unknown:
+            return (None, None, None)
+
         for n in range(0, len(self.CHANGE_OPND)):
             if idaapi.cmd.Operands[n].type in [idaapi.o_reg, idaapi.o_displ, idaapi.o_phrase]:
                 try:
@@ -332,6 +345,7 @@ class ArgParser(object):
                         if idaapi.is_basic_block_end(ea):
                             break
 
+                        # TODO: Use idc.NextHead(ea) instead...
                         ea += self.arch.insn_size
 
         return (None, None, None)
@@ -344,39 +358,40 @@ class ArgParser(object):
         '''
         args = [None for x in self.arch.argv]
 
-        for xref in idautils.XrefsTo(func.startEA):
-            if idaapi.is_call_insn(xref.frm):
-                idaapi.decode_insn(xref.frm)
+        if not self.arch.unknown:
+            for xref in idautils.XrefsTo(func.startEA):
+                if idaapi.is_call_insn(xref.frm):
+                    idaapi.decode_insn(xref.frm)
 
-                ea = xref.frm + (self.arch.delay_slot * self.arch.insn_size)
-                end_ea = (xref.frm - (self.arch.insn_size * 10))
+                    ea = xref.frm + (self.arch.delay_slot * self.arch.insn_size)
+                    end_ea = (xref.frm - (self.arch.insn_size * 10))
 
-                while ea >= end_ea:
-                    # Stop searching if we've reached a conditional block or another call
-                    if idaapi.is_basic_block_end(ea) or (ea != xref.frm and idaapi.is_call_insn(ea)):
-                        break
+                    while ea >= end_ea:
+                        # Stop searching if we've reached a conditional block or another call
+                        if idaapi.is_basic_block_end(ea) or (ea != xref.frm and idaapi.is_call_insn(ea)):
+                            break
 
-                    idaapi.decode_insn(ea)
-                    features = idaapi.cmd.get_canon_feature()
+                        idaapi.decode_insn(ea)
+                        features = idaapi.cmd.get_canon_feature()
 
-                    for n in range(0, len(self.CHANGE_OPND)):
-                        if idaapi.cmd.Operands[n].type in [idaapi.o_reg, idaapi.o_displ, idaapi.o_phrase]:
-                            try:
-                                regname = self.arch.registers[idaapi.cmd.Operands[n].reg]
-                                index = self.arch.argv.index(regname)
-                            except ValueError:
-                                continue
+                        for n in range(0, len(self.CHANGE_OPND)):
+                            if idaapi.cmd.Operands[n].type in [idaapi.o_reg, idaapi.o_displ, idaapi.o_phrase]:
+                                try:
+                                    regname = self.arch.registers[idaapi.cmd.Operands[n].reg]
+                                    index = self.arch.argv.index(regname)
+                                except ValueError:
+                                    continue
 
-                            if features & self.CHANGE_OPND[n]:
-                                for xref in idautils.XrefsFrom(ea):
-                                    # TODO: Where is this xref type defined?
-                                    if xref.type == 1:
-                                        string = idc.GetString(xref.to)
-                                        if string and len(string) > 4:
-                                            args[index] = str
-                                        break
+                                if features & self.CHANGE_OPND[n]:
+                                    for xref in idautils.XrefsFrom(ea):
+                                        # TODO: Where is this xref type defined?
+                                        if xref.type == 1:
+                                            string = idc.GetString(xref.to)
+                                            if string and len(string) > 4:
+                                                args[index] = str
+                                            break
 
-                    ea -= self.arch.insn_size
+                        ea -= self.arch.insn_size
 
                 yield args
 
@@ -418,7 +433,7 @@ class LeafFunctionFinder(object):
                         leaf_function = False
                         break
 
-                    ea += self.arch.insn_size
+                    ea = idc.NextHead(ea)
 
                 if leaf_function:
                     self.functions.append(Function(start=func.startEA,
