@@ -1,4 +1,4 @@
 ida
 ===
 
-Collection of IDA plugins/scripts.
+Collection of IDA Python plugins/scripts/modules.
