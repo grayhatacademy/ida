@@ -192,6 +192,8 @@ class MIPSROPFinder(object):
 
         if self.controllable_jumps or self.system_calls:
             print "MIPS ROP Finder activated, found %d controllable jumps between 0x%.8X and 0x%.8X" % (len(self.controllable_jumps), self.start, self.end)
+        else:
+            print "No ROP gadgets found!"
 
     def _initial_find(self):
         self.start = idc.BADADDR
