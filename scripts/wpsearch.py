@@ -62,16 +62,19 @@ class WPSearch(object):
                         self.IMMEDIATES[immediate].add(func.startEA)
 
     def _twos_compliment(self, val):
+        tv = self.__twos_compliment(val, 32)
+        if tv < 0:
+            tv = self.__twos_compliment(val, 64)
+        return tv
+
+    def __twos_compliment(self, val, bits):
         '''
         Python converts values larger than 0x7FFFFFFF into longs, which
         aren't converted properly in the swig translation. Use 2's compliment
         for large values instead.
         '''
-        bits = 32
-
         if (val & (1 << (bits - 1))) != 0:
             val = val - (1 << bits)
-
         return val
 
     def _generate_checksum_xrefs_table(self):
