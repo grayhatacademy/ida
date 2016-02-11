@@ -62,9 +62,10 @@ class WPSearch(object):
                         self.IMMEDIATES[immediate].add(func.startEA)
 
     def _twos_compliment(self, val):
-        tv = self.__twos_compliment(val, 32)
-        if tv < 0:
+        if idaapi.BADADDR == 0xFFFFFFFFFFFFFFFFL:
             tv = self.__twos_compliment(val, 64)
+        else:
+            tv = self.__twos_compliment(val, 32)
         return tv
 
     def __twos_compliment(self, val, bits):
