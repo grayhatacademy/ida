@@ -508,7 +508,7 @@ class leaf_blower_t(idaapi.plugin_t):
         idaapi.del_menu_item(self.stdio_context_menu)
         return None
 
-    def run(self):
+    def run(self, arg):
         pass
 
     def LeafFromMenu(self, arg):
