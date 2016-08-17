@@ -19,7 +19,7 @@ class AlleyCat(object):
     Class which resolves code paths. This is where most of the work is done.
     '''
 
-    def __init__(self, start, end):
+    def __init__(self, start, end, quiet=False):
         '''
         Class constructor.
 
@@ -31,9 +31,11 @@ class AlleyCat(object):
         global ALLEYCAT_LIMIT
         self.limit = ALLEYCAT_LIMIT
         self.paths = []
+        self.quiet = quiet
 
         # We work backwards via xrefs, so we start at the end and end at the start
-        print "Generating call paths from %s to %s..." % (self._name(end), self._name(start))
+        if not self.quiet:
+            print "Generating call paths from %s to %s..." % (self._name(end), self._name(start))
         self._build_paths(start, end)
 
     def _name(self, ea):
@@ -94,7 +96,7 @@ class AlleyCat(object):
 
 class AlleyCatFunctionPaths(AlleyCat):
 
-    def __init__(self, start_ea, end_ea):
+    def __init__(self, start_ea, end_ea, quiet=False):
 
         # We work backwards via xrefs, so we start at the end and end at the start
         try:
@@ -106,14 +108,14 @@ class AlleyCatFunctionPaths(AlleyCat):
         except:
             end = idc.BADADDR
 
-        super(AlleyCatFunctionPaths, self).__init__(start, end)
+        super(AlleyCatFunctionPaths, self).__init__(start, end, quiet)
 
     def _get_code_block(self, ea):
         return idaapi.get_func(ea)
 
 class AlleyCatCodePaths(AlleyCat):
 
-    def __init__(self, start_ea, end_ea):
+    def __init__(self, start_ea, end_ea, quiet=False):
         end_func = idaapi.get_func(end_ea)
         start_func = idaapi.get_func(start_ea)
 
@@ -136,7 +138,7 @@ class AlleyCatCodePaths(AlleyCat):
         if not start_block:
             raise AlleyCatException("Failed to find the code block associated with address 0x%X" % end_ea)
 
-        super(AlleyCatCodePaths, self).__init__(start_block.startEA, end_block.startEA)
+        super(AlleyCatCodePaths, self).__init__(start_block.startEA, end_block.startEA, quiet)
 
     def _get_code_block(self, ea):
         for block in self.blocks:
@@ -252,6 +254,7 @@ class AlleyCatGraph(idaapi.GraphViewer):
             self.cmd_reset = self.AddCommand("Reset graph", "")
             self.cmd_exclude = self.AddCommand("Exclude node", "")
             self.cmd_include = self.AddCommand("Include node", "")
+            self.cmd_unhighlight = self.AddCommand("Temporarily un-highlight all paths", "")
             return True
 
     def OnRefresh(self):
@@ -356,6 +359,8 @@ class AlleyCatGraph(idaapi.GraphViewer):
             self.exclude_on_click = False
             self.history.reset()
             self.Refresh()
+        elif self.cmd_unhighlight == cmd_id:
+            self.unhighlight_all()
 
     def OnClick(self, node_id):
         if self.include_on_click:
