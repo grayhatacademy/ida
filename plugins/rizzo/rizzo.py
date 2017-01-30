@@ -477,7 +477,7 @@ class RizzoPlugin(idaapi.plugin_t):
         idaapi.IDAPython_ExecScript(self.script, globals())
 
     def rizzo_produce(self, arg):
-        fname = idc.AskFile(1, "*.riz", "Save signature file as")
+        fname = idc.AskFile(1, idc.GetInputFile()+".riz", "Save signature file as")
         if fname:
             if '.' not in fname:
                 fname += ".riz"
