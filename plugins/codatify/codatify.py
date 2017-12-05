@@ -256,10 +256,17 @@ class Codatify(object):
 
         print ("Looking for possible strings starting at: %s:0x%X..." % (idc.SegName(ea), ea)),
 
+        isbreak = False
         for s in idautils.Strings():
+            if isbreak is True:
+                break
             if s.ea > ea:
-                if not idc.isASCII(idc.GetFlags(s.ea)) and idc.MakeStr(s.ea, idc.BADADDR):
-                    n += 1
+                try:
+                    if not idc.isASCII(idc.GetFlags(s.ea)) and idc.MakeStr(s.ea, idc.BADADDR):
+                        n += 1
+                except:
+                    isbreak = True
+                    pass
 
         print "created %d new ASCII strings" % n
 
@@ -354,6 +361,37 @@ class Codatify(object):
         print "Created %d new functions and %d new code blocks\n" % (func_count, code_count)
 
 
+label_fixup_code = "Fixup Code"
+label_fixup_data = "Fixup Data"
+action_fixup_code = "fixup:code"
+action_fixup_data = "fixup:data"
+options_codatify = "Options/Codatify/"
+
+class CodatifyHandler(idaapi.action_handler_t):
+    def __init__(self, action):
+        idaapi.action_handler_t.__init__(self)
+        self.action = action
+ 
+    def activate(self, ctx):
+        if self.action is 0:
+            self.fix_code()
+        elif self.action is 1:
+            self.fix_data()
+        return 1
+
+    def fix_code(self):
+        cd = Codatify()
+        cd.codeify()
+
+    def fix_data(self):
+        cd = Codatify()
+        cd.stringify()
+        cd.datify()
+        cd.pointify()
+        StructFinder().parse_function_tables()
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_FOR_FORM if ctx.form_type == idaapi.BWN_DISASM else idaapi.AST_DISABLE_FOR_FORM
 
 class codatify_t(idaapi.plugin_t):
     flags = 0
@@ -363,27 +401,33 @@ class codatify_t(idaapi.plugin_t):
     wanted_hotkey = ""
 
     def init(self):
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
+        if idaapi.IDA_SDK_VERSION >= 700:
+            if idaapi.register_action(idaapi.action_desc_t(action_fixup_code,label_fixup_code,CodatifyHandler(0))) is None:
+                print "Fail register action fixup code"
+            if idaapi.register_action(idaapi.action_desc_t(action_fixup_data,label_fixup_data,CodatifyHandler(1))) is None:
+                print "Fail register action fixup data"
+
+            if idaapi.attach_action_to_menu(options_codatify, action_fixup_code, idaapi.SETMENU_APP) is None:
+                print "Failed attach action"
+            if idaapi.attach_action_to_menu(options_codatify, action_fixup_data, idaapi.SETMENU_APP) is None:
+                print "Failed attach action"
+        else:
+            self.menu_context = idaapi.add_menu_item(options_codatify, label_fixup_code, "", 0, CodatifyHandler(0), (None,))
+            self.menu_context = idaapi.add_menu_item(options_codatify, label_fixup_data, "", 0, CodatifyHandler(1), (None,))
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context)
+        if idaapi.IDA_SDK_VERSION >= 700:
+            if idaapi.unregister_action(action_fixup_code) is None:
+                print "Failed to unregister action."
+            if idaapi.unregister_action(action_fixup_data) is None:
+                print "Failed to unregister action."
+        else:
+            idaapi.del_menu_item(self.menu_context)
         return None
 
     def run(self, arg):
         pass
-
-    def fix_code(self, arg):
-        cd = Codatify()
-        cd.codeify()
-
-    def fix_data(self, arg):
-        cd = Codatify()
-        cd.stringify()
-        cd.datify()
-        cd.pointify()
-        StructFinder().parse_function_tables()
 
 def PLUGIN_ENTRY():
     return codatify_t()
