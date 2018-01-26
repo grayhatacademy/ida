@@ -1,6 +1,4 @@
-import idc
-import idaapi
-import idautils
+import idc, idaapi, idautils
 import time
 
 # This limits the depth of any individual path, as well as the maximum
@@ -485,48 +483,10 @@ class AlleyCatGraph(idaapi.GraphViewer):
             for ea in path:
                 self.unhighlight(ea)
 
-class idapathfinder_t(idaapi.plugin_t):
-
-    flags = 0
-    comment = ''
-    help = ''
-    wanted_name = 'AlleyCat'
-    wanted_hotkey = ''
-
-    def init(self):
-        ui_path = "View/Graphs/"
-        self.menu_contexts = []
-        self.graph = None
-
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths to the current function from...",
-                                "",
-                                0,
-                                self.FindPathsFromMany,
-                                (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths from the current function to...",
-                                "",
-                                0,
-                                self.FindPathsToMany,
-                                (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths in the current function to the current code block",
-                                "",
-                                0,
-                                self.FindPathsToCodeBlock,
-                                (None,)))
-
-        return idaapi.PLUGIN_KEEP
-
-    def term(self):
-        for context in self.menu_contexts:
-            idaapi.del_menu_item(context)
-        return None
-
-    def run(self, arg):
-        pass
-
+class PathFinder:
+    
+    graph = None
+    
     def _current_function(self):
         return idaapi.get_func(ScreenEA()).startEA
 
@@ -584,14 +544,14 @@ class idapathfinder_t(idaapi.plugin_t):
 
         return functions
 
-    def FindPathsToCodeBlock(self, arg):
+    def FindPathsToCodeBlock(self):
         target = idc.ScreenEA()
         source = self._current_function()
 
         if source:
             self._find_and_plot_paths([source], [target], klass=AlleyCatCodePaths)
 
-    def FindPathsToMany(self, arg):
+    def FindPathsToMany(self):
         source = self._current_function()
 
         if source:
@@ -599,7 +559,7 @@ class idapathfinder_t(idaapi.plugin_t):
             if targets:
                 self._find_and_plot_paths([source], targets)
 
-    def FindPathsFromMany(self, arg):
+    def FindPathsFromMany(self):
         target = self._current_function()
 
         if target:
@@ -607,6 +567,99 @@ class idapathfinder_t(idaapi.plugin_t):
             if sources:
                 self._find_and_plot_paths(sources, [target])
 
+class PathsToBlockHandler(idaapi.action_handler_t):
+    def __init__(self):
+        idaapi.action_handler_t.__init__(self)
+
+    def activate(self, ctx):
+        PathFinder().FindPathsToCodeBlock()
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+class PathsToManyHandler(idaapi.action_handler_t):
+    def __init__(self):
+        idaapi.action_handler_t.__init__(self)
+
+    def activate(self, ctx):
+        PathFinder().FindPathsToMany()
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+class PathsFromManyHandler(idaapi.action_handler_t):
+    def __init__(self):
+        idaapi.action_handler_t.__init__(self)
+
+    def activate(self, ctx):
+        PathFinder().FindPathsFromMany()
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+class idapathfinder_t(idaapi.plugin_t):
+
+    flags = 0
+    comment = ''
+    help = ''
+    wanted_name = 'AlleyCat'
+    wanted_hotkey = ''
+
+    def init(self):
+        ui_path = 'View/Graphs/'
+        action_desc = idaapi.action_desc_t(
+            'ac:from_many',  # The action name. This acts like an ID and must be unique
+            'Find paths to the current function from...',  # The action text.
+            PathsFromManyHandler(),  # The action handler.
+            '',  # Optional: the action shortcut
+            '',  # Optional: the action tooltip (available in menus/toolbar)
+            )  # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+        # Register the action
+        idaapi.register_action(action_desc)
+        idaapi.attach_action_to_menu(ui_path, 'ac:from_many', idaapi.SETMENU_APP)
+
+        action_desc = idaapi.action_desc_t(
+            'ac:to_many',  # The action name. This acts like an ID and must be unique
+            'Find paths from the current function to...',  # The action text.
+            PathsToManyHandler(),  # The action handler.
+            '',  # Optional: the action shortcut
+            '',  # Optional: the action tooltip (available in menus/toolbar)
+            )  # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+        # Register the action
+        idaapi.register_action(action_desc)
+        idaapi.attach_action_to_menu(ui_path, 'ac:to_many', idaapi.SETMENU_APP)
+
+        action_desc = idaapi.action_desc_t(
+            'ac:to_current',  # The action name. This acts like an ID and must be unique
+            'Find paths in the current function to the current code block',  # The action text.
+            PathsToBlockHandler(),  # The action handler.
+            '',  # Optional: the action shortcut
+            '',  # Optional: the action tooltip (available in menus/toolbar)
+            )  # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+        # Register the action
+        idaapi.register_action(action_desc)
+        idaapi.attach_action_to_menu(ui_path, 'ac:to_current', idaapi.SETMENU_APP)
+
+        return idaapi.PLUGIN_KEEP
+
+    def term(self):
+        ui_path = 'View/Graphs/'
+        idaapi.detach_action_from_menu(ui_path, 'ac:from_many')
+        idaapi.detach_action_from_menu(ui_path, 'ac:to_many')
+        idaapi.detach_action_from_menu(ui_path, 'ac:to_current')
+        idaapi.unregister_action('ac:from_many')
+        idaapi.unregister_action('ac:to_many')
+        idaapi.unregister_action('ac:to_current')
+        return None
+
+    def run(self, arg):
+        pass
+
 def PLUGIN_ENTRY():
     return idapathfinder_t()
-
