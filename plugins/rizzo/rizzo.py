@@ -451,6 +451,36 @@ def RizzoApply(sigfile=None):
 
 
 
+class IdaMenuHandlerRizzoLoad(idaapi.action_handler_t):
+    def __init__(self):
+        idaapi.action_handler_t.__init__(self)
+    
+    def activate(self, ctx):
+        fname = idc.AskFile(0, "*.riz", "Load signature file")
+        if fname:
+            RizzoApply(fname)
+        return 1
+    
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+
+class IdaMenuHandlerRizzoSave(idaapi.action_handler_t):
+    def __init__(self):
+        idaapi.action_handler_t.__init__(self)
+    
+    def activate(self, ctx):
+        fname = idc.AskFile(1, "*.riz", "Save signature file as")
+        if fname:
+            if '.' not in fname:
+                fname += ".riz"
+            RizzoBuild(fname)
+        return 1
+    
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+
 class RizzoPlugin(idaapi.plugin_t):
     flags = 0
     comment = "Function signature"
@@ -459,15 +489,30 @@ class RizzoPlugin(idaapi.plugin_t):
     wanted_hotkey = ""
 
     NAME = "rizzo.py"
-
+    
+    action_rizzo_load = { "name":"rizzo:load", "label":"Rizzo signature file...", "handler":IdaMenuHandlerRizzoLoad(), "menu_path":"File/Load file/",    "menu_flags":idaapi.SETMENU_FIRST }
+    action_rizzo_save = { "name":"rizzo:save", "label":"Rizzo signature file...", "handler":IdaMenuHandlerRizzoSave(), "menu_path":"File/Produce file/", "menu_flags":idaapi.SETMENU_FIRST }
+    action_rizzo_list = [action_rizzo_load, action_rizzo_save]
+    
     def init(self):
-        self.menu_context_load = idaapi.add_menu_item("File/Load file/", "Rizzo signature file...", "", 0, self.rizzo_load, (None,))
-        self.menu_context_produce = idaapi.add_menu_item("File/Produce file/", "Rizzo signature file...", "", 0, self.rizzo_produce, (True,))
+        for action in self.action_rizzo_list:
+            action_desc = idaapi.action_desc_t(action["name"], action["label"], action["handler"])
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(action["menu_path"], action["name"], action["menu_flags"])
+        
+        # add_menu_item(menupath, name, hotkey, flags, pyfunc, args) -> PyObject *
+        #self.menu_context_load = idaapi.add_menu_item("File/Load file/",       "Rizzo signature file...", "", 0, self.rizzo_load, (None,))
+        #self.menu_context_produce = idaapi.add_menu_item("File/Produce file/", "Rizzo signature file...", "", 0, self.rizzo_produce, (True,))
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context_load)
-        idaapi.del_menu_item(self.menu_context_produce)
+        for action in self.action_rizzo_list:
+            idaapi.detach_action_from_menu(action["menu_path"], action["name"])
+            idaapi.unregister_action(action["name"])
+        
+        # del_menu_item(py_ctx) -> bool
+        #idaapi.del_menu_item(self.menu_context_load)
+        #idaapi.del_menu_item(self.menu_context_produce)
         return None
 
     def run(self, arg):
@@ -476,19 +521,7 @@ class RizzoPlugin(idaapi.plugin_t):
     def rizzo_script(self):
         idaapi.IDAPython_ExecScript(self.script, globals())
 
-    def rizzo_produce(self, arg):
-        fname = idc.AskFile(1, "*.riz", "Save signature file as")
-        if fname:
-            if '.' not in fname:
-                fname += ".riz"
-            RizzoBuild(fname)
-        return None
 
-    def rizzo_load(self, arg):
-        fname = idc.AskFile(0, "*.riz", "Load signature file")
-        if fname:
-            RizzoApply(fname)
-        return None
 
 def PLUGIN_ENTRY():
     return RizzoPlugin()
