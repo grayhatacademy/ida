@@ -485,6 +485,20 @@ class AlleyCatGraph(idaapi.GraphViewer):
             for ea in path:
                 self.unhighlight(ea)
 
+
+
+class alleycat_ah_t(idaapi.action_handler_t):
+    def __init__(self, cb):
+        idaapi.action_handler_t.__init__(self)
+        self.cb = cb
+
+    def activate(self, ctx):
+        self.cb()
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+
 class idapathfinder_t(idaapi.plugin_t):
 
     flags = 0
@@ -495,40 +509,33 @@ class idapathfinder_t(idaapi.plugin_t):
 
     def init(self):
         ui_path = "View/Graphs/"
-        self.menu_contexts = []
         self.graph = None
 
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths to the current function from...",
-                                "",
-                                0,
-                                self.FindPathsFromMany,
-                                (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths from the current function to...",
-                                "",
-                                0,
-                                self.FindPathsToMany,
-                                (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths in the current function to the current code block",
-                                "",
-                                0,
-                                self.FindPathsToCodeBlock,
-                                (None,)))
+        for action_name, action_label, callback in [
+                ("ToCurrent", "Find paths to the current function from...", self.FindPathsFromMany),
+                ("FromCurrent", "Find paths from the current function to...", self.FindPathsToMany),
+                ("ToCurrentCodeBlock", "Find paths in the current function to the current code block", self.FindPathsToCodeBlock),
+        ]:
+            action_qname = "alleycat:%s" % action_name
+            action_desc = idaapi.action_desc_t(
+                action_qname,
+                action_label,
+                alleycat_ah_t(callback))
+            if idaapi.register_action(action_desc):
+                idaapi.attach_action_to_menu(ui_path, action_qname, idaapi.SETMENU_APP)
+            else:
+                print("Failed registering action '%s'" % action_qname)
 
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        for context in self.menu_contexts:
-            idaapi.del_menu_item(context)
         return None
 
     def run(self, arg):
         pass
 
     def _current_function(self):
-        return idaapi.get_func(ScreenEA()).startEA
+        return idaapi.get_func(idc.ScreenEA()).startEA
 
     def _find_and_plot_paths(self, sources, targets, klass=AlleyCatFunctionPaths):
         results = []
@@ -584,14 +591,14 @@ class idapathfinder_t(idaapi.plugin_t):
 
         return functions
 
-    def FindPathsToCodeBlock(self, arg):
+    def FindPathsToCodeBlock(self):
         target = idc.ScreenEA()
         source = self._current_function()
 
         if source:
             self._find_and_plot_paths([source], [target], klass=AlleyCatCodePaths)
 
-    def FindPathsToMany(self, arg):
+    def FindPathsToMany(self):
         source = self._current_function()
 
         if source:
@@ -599,7 +606,7 @@ class idapathfinder_t(idaapi.plugin_t):
             if targets:
                 self._find_and_plot_paths([source], targets)
 
-    def FindPathsFromMany(self, arg):
+    def FindPathsFromMany(self):
         target = self._current_function()
 
         if target:
