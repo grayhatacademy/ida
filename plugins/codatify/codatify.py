@@ -1,14 +1,22 @@
 # IDA plugin that converts all data in data segments to defined data types, and all data in code segments to code.
 #
-# Use by going to Options->Define data and code.
+# Use by going to Options->Fixup code or Options->Fixup data
 #
 # Craig Heffner
 # Tactical Network Solutions
 
-import idc
-import idaapi
-import idautils
-import string
+if idaapi.IDA_SDK_VERSION <= 695:
+    import idc
+    import idaapi
+    import idautils
+    import string
+if idaapi.IDA_SDK_VERSION >= 700:
+    import idc
+    import ida_idaapi
+    #import ida_kerwin
+    from idaapi import *
+else:
+    pass
 
 class StructEntry(object):
 
@@ -354,6 +362,44 @@ class Codatify(object):
         print "Created %d new functions and %d new code blocks\n" % (func_count, code_count)
 
 
+# Use try to avoid breaking ida versions below 6.8
+try:
+    class FixCodeHandler(idaapi.action_handler_t):
+
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            # b = codatify_t()
+            # b.fix_code()
+            return 1
+
+        # This action is always available.
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+
+except AttributeError:
+    pass
+
+try:
+    class FixDataHandler(idaapi.action_handler_t):
+
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            # c = codatify_t()
+            # c.fix_data()
+            return 1
+
+        # This action is always available.
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+
+except AttributeError:
+    pass
+
+
 
 class codatify_t(idaapi.plugin_t):
     flags = 0
@@ -363,12 +409,41 @@ class codatify_t(idaapi.plugin_t):
     wanted_hotkey = ""
 
     def init(self):
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
+        if idaapi.IDA_SDK_VERSION >= 680 and idaapi.IDA_SDK_VERSION <= 695:
+            self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
+            self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
+        if idaapi.IDA_SDK_VERSION >= 700:
+            # Create our "Fixup code" action
+            action_desc = idaapi.action_desc_t(
+                "codatify:fixupcodeaction", # Name
+                "Fixup code",               # Label (what the user sees)
+                FixCodeHandler(),           # Handler. Called on activation and for updates
+                "",                         # Shortcut (optional)
+                "Fixup code"                # Tooltip (optional)
+                )
+            # Register the "Fixup code" action and add it to the menu
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu("Options/", "codatify:fixupcodeaction", idaapi.SETMENU_APP)
+
+            # Create our "Fixup data" action
+            action_desc = idaapi.action_desc_t(
+                "codatify:fixupdataaction",
+                "Fixup data",
+                FixDataHandler(),
+                "",
+                "Fixup data"
+                )
+            # Register the "Fixup code" action and add it to the menu
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu("Options/", "codatify:fixupdataaction", idaapi.SETMENU_APP)
+        else:
+            pass
+
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context)
+        if idaapi.IDA_SDK_VERSION <= 695 and idaapi.IDA_SDK_VERSION >= 680:
+            idaapi.del_menu_item(self.menu_context)
         return None
 
     def run(self, arg):
@@ -385,6 +460,6 @@ class codatify_t(idaapi.plugin_t):
         cd.pointify()
         StructFinder().parse_function_tables()
 
+
 def PLUGIN_ENTRY():
     return codatify_t()
-
