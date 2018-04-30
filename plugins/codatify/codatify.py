@@ -5,10 +5,48 @@
 # Craig Heffner
 # Tactical Network Solutions
 
-import idc
-import idaapi
-import idautils
-import string
+if idaapi.IDA_SDK_VERSION <= 695:
+    import idc, idaapi, idautils, string, traceback
+if idaapi.IDA_SDK_VERSION >= 700:
+    import ida_idaapi, ida_kernwin, traceback
+    from idaapi import *
+else:
+    pass
+
+try: #we try because of ida versions below 6.8, and write action handlers below
+    class FixCodeHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        # Say hello when invoked.
+        def activate(self, ctx):
+            a = codatify_t()
+            a.fix_code((None,))
+            return 1
+
+        # This action is always available.
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+
+try: #we try because of ida versions below 6.8, and write action handlers below
+    class FixDataHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        # Say hello when invoked.
+        def activate(self, ctx):
+            a = codatify_t()
+            a.fix_data((None,))
+            return 1
+
+        # This action is always available.
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
 
 class StructEntry(object):
 
@@ -363,12 +401,48 @@ class codatify_t(idaapi.plugin_t):
     wanted_hotkey = ""
 
     def init(self):
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
+        if idaapi.IDA_SDK_VERSION <= 695 and idaapi.IDA_SDK_VERSION >= 680:
+            self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
+            self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
+        if idaapi.IDA_SDK_VERSION >= 700:
+            #populating action menus
+            action_desc = idaapi.action_desc_t(
+                'my:FixCodeAction',  # The action name. This acts like an ID and must be unique
+                'Fixup code',  # The action text.
+                FixCodeHandler(),  # The action handler.
+                '',  # Optional: the action shortcut
+                '',  # Optional: the action tooltip (available in menus/toolbar)
+                )    # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+            # Register the action
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(
+                'Options/',
+                'my:FixCodeAction',
+                idaapi.SETMENU_APP)
+
+            #populating action menus
+            action_desc = idaapi.action_desc_t(
+                'my:FixDataAction',  # The action name. This acts like an ID and must be unique
+                'Fixup data',  # The action text.
+                FixDataHandler(),  # The action handler.
+                '',  # Optional: the action shortcut
+                '',  # Optional: the action tooltip (available in menus/toolbar)
+                )    # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+            # Register the action
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(
+                'Options/',
+                'my:FixDataAction',
+                idaapi.SETMENU_APP)
+
+                
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context)
+        if idaapi.IDA_SDK_VERSION <= 695 and idaapi.IDA_SDK_VERSION >= 680:
+            idaapi.del_menu_item(self.menu_context)
         return None
 
     def run(self, arg):
