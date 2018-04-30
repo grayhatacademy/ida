@@ -1,7 +1,10 @@
-import idc
-import idaapi
-import idautils
-import time
+if idaapi.IDA_SDK_VERSION <= 695:
+    import idaapi, idautils, json, traceback
+if idaapi.IDA_SDK_VERSION >= 700:
+    import ida_idaapi, ida_kernwin, traceback
+    from idaapi import *
+else:
+    pass
 
 # This limits the depth of any individual path, as well as the maximum
 # number of paths that will be searched; this is needed for practical
@@ -10,6 +13,57 @@ import time
 #
 # This is global so it's easy to change from the IDAPython prompt.
 ALLEYCAT_LIMIT = 10000
+
+try: #we try because of ida versions below 6.8, and write action handlers below
+    class FindPathsToCodeBlockHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        # Say hello when invoked.
+        def activate(self, ctx):
+            a = idapathfinder_t()
+            a.FindPathsToCodeBlock((None,))
+            return 1
+
+        # This action is always available.
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+try: #we try because of ida versions below 6.8, and write action handlers below
+    class FindPathsToManyHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        # Say hello when invoked.
+        def activate(self, ctx):
+            a = idapathfinder_t()
+            a.FindPathsToMany((None,))
+            return 1
+
+        # This action is always available.
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+try: #we try because of ida versions below 6.8, and write action handlers below
+    class FindPathsFromManyHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        # Say hello when invoked.
+        def activate(self, ctx):
+            a = idapathfinder_t()
+            a.FindPathsFromMany((None,))
+            return 1
+
+        # This action is always available.
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
 
 class AlleyCatException(Exception):
     pass
@@ -498,25 +552,78 @@ class idapathfinder_t(idaapi.plugin_t):
         self.menu_contexts = []
         self.graph = None
 
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
+        if idaapi.IDA_SDK_VERSION <= 695 and idaapi.IDA_SDK_VERSION >= 680:
+            self.menu_contexts.append(idaapi.add_menu_item(ui_path,
                                 "Find paths to the current function from...",
                                 "",
                                 0,
                                 self.FindPathsFromMany,
                                 (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
+            self.menu_contexts.append(idaapi.add_menu_item(ui_path,
                                 "Find paths from the current function to...",
                                 "",
                                 0,
                                 self.FindPathsToMany,
                                 (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
+            self.menu_contexts.append(idaapi.add_menu_item(ui_path,
                                 "Find paths in the current function to the current code block",
                                 "",
                                 0,
                                 self.FindPathsToCodeBlock,
                                 (None,)))
 
+        if idaapi.IDA_SDK_VERSION >= 700:
+            #populating action menus
+            action_desc = idaapi.action_desc_t(
+                'my:FindPathsFromManyAction',  # The action name. This acts like an ID and must be unique
+                'Find paths to the current function from...',  # The action text.
+                FindPathsFromManyHandler(),  # The action handler.
+                '',  # Optional: the action shortcut
+                '',  # Optional: the action tooltip (available in menus/toolbar)
+                )    # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+            # Register the action
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(
+                ui_path,
+                'my:FindPathsFromManyAction',
+                idaapi.SETMENU_APP)
+
+            #populating action menus
+            action_desc = idaapi.action_desc_t(
+                'my:FindPathsToManyAction',  # The action name. This acts like an ID and must be unique
+                'Find paths from the current function to...',  # The action text.
+                FindPathsToManyHandler(),  # The action handler.
+                '',  # Optional: the action shortcut
+                '',  # Optional: the action tooltip (available in menus/toolbar)
+                )    # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+            # Register the action
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(
+                ui_path,
+                'my:FindPathsToManyAction',
+                idaapi.SETMENU_APP)
+                
+            #populating action menus
+            action_desc = idaapi.action_desc_t(
+                'my:FindPathsToCodeBlockAction',  # The action name. This acts like an ID and must be unique
+                'Find paths in the current function to the current code block',  # The action text.
+                FindPathsToCodeBlockHandler(),  # The action handler.
+                '',  # Optional: the action shortcut
+                '',  # Optional: the action tooltip (available in menus/toolbar)
+                )    # Optional: the action icon (shows when in menus/toolbars) use numbers 1-255
+
+            # Register the action
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(
+                ui_path,
+                'my:FindPathsToCodeBlockAction',
+                idaapi.SETMENU_APP)
+
+        else:
+            pass
+        
         return idaapi.PLUGIN_KEEP
 
     def term(self):
