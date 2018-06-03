@@ -258,7 +258,7 @@ class Codatify(object):
 
         for s in idautils.Strings():
             if s.ea > ea:
-                if not idc.isASCII(idc.GetFlags(s.ea)) and idc.MakeStr(s.ea, idc.BADADDR):
+                if not idc.isASCII(idc.GetFlags(s.ea)) and idc.create_strlit(s.ea, idc.BADADDR):
                     n += 1
 
         print "created %d new ASCII strings" % n
@@ -354,6 +354,35 @@ class Codatify(object):
         print "Created %d new functions and %d new code blocks\n" % (func_count, code_count)
 
 
+try:
+    class FixCodeHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            codatify_t.fix_code()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+
+try:
+    class FixDataHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            codatify_t.fix_data()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
 
 class codatify_t(idaapi.plugin_t):
     flags = 0
@@ -361,29 +390,92 @@ class codatify_t(idaapi.plugin_t):
     help = ""
     wanted_name = "Define all data and code"
     wanted_hotkey = ""
+    menu_context_fixup_code = None
+    menu_context_fixup_data = None
+    fixup_code_action_desc = None
+    fixup_data_action_desc = None
 
     def init(self):
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
+        if idaapi.IDA_SDK_VERSION <= 695:
+            self.menu_context_fixup_code = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self._fix_code, (None,))
+            self.menu_context_fixup_data = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self._fix_data, (None,))
+        elif idaapi.IDA_SDK_VERSION >= 700:
+            # Describe the 'Fixup code' action
+            self.fixup_code_action_desc = idaapi.action_desc_t(
+                'codatify:fixupcodeaction',  # The action name. This acts like an ID and must be unique
+                'Fixup code',  # The action text.
+                FixCodeHandler(),  # The action handler.
+                '',  # Optional: the action shortcut
+                'Fixes the code',  # Optional: the action tooltip (available in menus/toolbar)
+            )  # Optional: the action icon (shows when in menus/toolbars)
+
+            # Register the 'Fixup code' action
+            idaapi.register_action(self.fixup_code_action_desc)
+
+            # Attach the 'Fixup code' action to the menu
+            idaapi.attach_action_to_menu(
+                'Options/',  # The relative path of where to add the action
+                'codatify:fixupcodeaction',  # The action ID (see above)
+                idaapi.SETMENU_APP)  # We want to append the action after the 'Manual instruction...'
+
+            # Describe the 'Fixup data' action
+            self.fixup_data_action_desc = idaapi.action_desc_t(
+                'codatify:fixupdataaction',
+                'Fixup data',
+                FixDataHandler(),
+                '',
+                'Fixes the data',
+            )
+
+            # Register the 'Fixup data' action
+            idaapi.register_action(self.fixup_data_action_desc)
+
+            # Attach the 'Fixup data' action to the menu
+            idaapi.attach_action_to_menu(
+                'Options/',
+                'codatify:fixupdataaction',
+                idaapi.SETMENU_APP
+            )
+
+        else:
+            pass
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context)
+        if idaapi.IDA_SDK_VERSION <= 695:
+            idaapi.del_menu_item(self.menu_context_fixup_code)
+            idaapi.del_menu_item(self.menu_context_fixup_data)
+        elif idaapi.IDA_SDK_VERSION >= 700:
+            idaapi.detach_action_from_menu('Options/', 'codatify:fixupcodection')
+            idaapi.detach_action_from_menu('Options/', 'codatify:fixupdataaction')
+            idaapi.unregister_action('codatify:fixupcodection')
+            idaapi.unregister_action('codatify:fixupdataaction')
+        else:
+            pass
         return None
 
     def run(self, arg):
         pass
 
-    def fix_code(self, arg):
+    def _fix_code(self, arg):
+        self.fix_code()
+
+    def _fix_data(self, arg):
+        self.fix_data()
+
+    @staticmethod
+    def fix_code():
         cd = Codatify()
         cd.codeify()
 
-    def fix_data(self, arg):
+    @staticmethod
+    def fix_data():
         cd = Codatify()
         cd.stringify()
         cd.datify()
         cd.pointify()
         StructFinder().parse_function_tables()
+
 
 def PLUGIN_ENTRY():
     return codatify_t()
