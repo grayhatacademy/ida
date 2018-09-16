@@ -51,12 +51,12 @@ class StructPatternDetector(object):
         self.name_element = -1
         entry_element_count = None
 
-        struct = StructCast(ea, n)
+        structure = StructCast(ea, n)
 
-        if struct.entries[0].type is not None:
-            (p1, p2) = self.get_entry_pair(struct)
+        if structure.entries[0].type is not None:
+            (p1, p2) = self.get_entry_pair(structure)
 
-            pattern_to_match = [x.type for x in struct.entries[p1:p2+1]]
+            pattern_to_match = [x.type for x in structure.entries[p1:p2+1]]
 
             for i in range(0, n):
                 address = ea + ((p2+i)*self.element_size)
@@ -69,14 +69,14 @@ class StructPatternDetector(object):
             if entry_element_count is not None and entry_element_count > 0:
                 num_entries = self.get_entry_count(ea,
                                                    entry_element_count,
-                                                   [x.type for x in struct.entries[p1:entry_element_count]])
+                                                   [x.type for x in structure.entries[p1:entry_element_count]])
 
                 self.start = self.address
                 self.num_elements = entry_element_count
                 self.num_entries = num_entries
                 self.stop = self.address + (self.num_elements * self.element_size * self.num_entries)
 
-                if struct.entries[p1].type == str:
+                if structure.entries[p1].type == str:
                     self.name_element = p1
                     self.function_element = p2
                 else:
@@ -99,13 +99,13 @@ class StructPatternDetector(object):
         return entry_count
 
 
-    def get_entry_pair(self, struct):
+    def get_entry_pair(self, structure):
         end = 0
         start = 0
         count = 0
 
-        for entry in struct.entries:
-            if entry.type is not None and entry.type != struct.entries[0].type:
+        for entry in structure.entries:
+            if entry.type is not None and entry.type != structure.entries[0].type:
                 end = count
                 break
             count += 1
@@ -222,7 +222,6 @@ class StructFinder(object):
         print "Renamed %d functions!" % count
 
 class Codatify(object):
-
     CODE = 2
     DATA = 3
     SEARCH_DEPTH = 25
@@ -354,36 +353,103 @@ class Codatify(object):
         print "Created %d new functions and %d new code blocks\n" % (func_count, code_count)
 
 
+try:
+    class CodatifyFixupCode(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            cd = Codatify()
+            cd.codeify()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+
+
+    class CodatifyFixupData(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            cd = Codatify()
+            cd.stringify()
+            cd.datify()
+            cd.pointify()
+            StructFinder().parse_function_tables()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+
+def fix_code(arg=None):
+    cd = Codatify()
+    cd.codeify()
+
+
+def fix_data(arg=None):
+    cd = Codatify()
+    cd.stringify()
+    cd.datify()
+    cd.pointify()
+    StructFinder().parse_function_tables()
+
 
 class codatify_t(idaapi.plugin_t):
     flags = 0
     comment = ""
     help = ""
-    wanted_name = "Define all data and code"
+    wanted_name = "Fixup Code and Data"
     wanted_hotkey = ""
+    code_action_name = 'fixupcode:action'
+    data_action_name = 'fixupdata:action'
+    menu_tab = 'Options/'
+    menu_context = []
 
     def init(self):
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup code", "", 0, self.fix_code, (None,))
-        self.menu_context = idaapi.add_menu_item("Options/", "Fixup data", "", 0, self.fix_data, (None,))
+        if idaapi.IDA_SDK_VERSION >= 700:
+            code_desc = idaapi.action_desc_t(self.code_action_name,
+                                             'Fixup Code',
+                                             CodatifyFixupCode(),
+                                             self.wanted_hotkey,
+                                             'Fixup Code',
+                                             199)
+
+            data_desc = idaapi.action_desc_t(self.data_action_name,
+                                             'Fixup Data',
+                                             CodatifyFixupData(),
+                                             self.wanted_hotkey,
+                                             'Fixup Data',
+                                             199)
+
+            idaapi.register_action(code_desc)
+            idaapi.register_action(data_desc)
+
+            idaapi.attach_action_to_menu(self.menu_tab, self.code_action_name, idaapi.SETMENU_APP)
+            idaapi.attach_action_to_menu(self.menu_tab, self.data_action_name, idaapi.SETMENU_APP)
+        else:
+            self.menu_context.append(
+                idaapi.add_menu_item("Options/", "Fixup code", "", 0, fix_code, (None,)))
+            self.menu_context.append(
+                idaapi.add_menu_item("Options/", "Fixup data", "", 0, fix_data, (None,)))
+
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context)
+        if idaapi.IDA_SDK_VERSION >= 700:
+            idaapi.detach_action_from_menu(self.menu_tab, self.code_action_name)
+            idaapi.detach_action_from_menu(self.menu_tab, self.data_action_name)
+        else:
+            for context in self.menu_context:
+                idaapi.del_menu_item(context)
         return None
 
     def run(self, arg):
         pass
 
-    def fix_code(self, arg):
-        cd = Codatify()
-        cd.codeify()
-
-    def fix_data(self, arg):
-        cd = Codatify()
-        cd.stringify()
-        cd.datify()
-        cd.pointify()
-        StructFinder().parse_function_tables()
 
 def PLUGIN_ENTRY():
     return codatify_t()

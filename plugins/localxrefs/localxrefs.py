@@ -5,178 +5,238 @@
 # Invoke by highlighting the desired text in IDA, then going to Jump->List local xrefs.
 # Highlighting is also supported; once xrefs are found, type the following in the Python command window:
 #
-#	Python> localxrefs.highlight()       <-- Highlight all xrefs
-#	Python> localxrefs.highlight(False)  <-- Un-highlight all xrefs
+#    Python> localxrefs.highlight()       <-- Highlight all xrefs
+#    Python> localxrefs.highlight(False)  <-- Un-highlight all xrefs
 #
 # Craig Heffner
 # Tactical Network Solutions
 
+import sys
 import idc
 import idaapi
+import idautils
 
 localxrefs = None
 
+def add_to_namespace(namespace, name, variable):
+    '''
+    Add a variable to a different namespace, likely __main__.
+    '''
+    importer_module = sys.modules[namespace]
+    if name in sys.modules.keys():
+        reload(sys.modules[name])
+    else:
+        import importlib
+        m = importlib.import_module(name, None)
+        sys.modules[name] = m
+
+    setattr(importer_module, name, variable)
+
 class LocalXrefs(object):
 
-	UP   = 'Up  '
-	DOWN = 'Down'
-	THIS = '-   '
+    UP   = 'Up  '
+    DOWN = 'Down'
+    THIS = '-   '
 
-	READ    = 'r'
-	WRITE   = 'w'
+    READ    = 'r'
+    WRITE   = 'w'
 
-	OPND_WRITE_FLAGS = {
-			0	: idaapi.CF_CHG1,
-			1	: idaapi.CF_CHG2,
-			2	: idaapi.CF_CHG3,
-			3	: idaapi.CF_CHG4,
-			4	: idaapi.CF_CHG5,
-			5	: idaapi.CF_CHG6,
-	}
+    OPND_WRITE_FLAGS = {
+            0    : idaapi.CF_CHG1,
+            1    : idaapi.CF_CHG2,
+            2    : idaapi.CF_CHG3,
+            3    : idaapi.CF_CHG4,
+            4    : idaapi.CF_CHG5,
+            5    : idaapi.CF_CHG6,
+    }
 
-	def __init__(self):
-		self.xrefs = {}
-		self.function = ''
-		self._profile_function()
+    def __init__(self):
+        self.xrefs = {}
+        self.function = ''
+        self._profile_function()
 
-	def _profile_function(self):
-		current_ea = ScreenEA()
-		current_function = idc.GetFunctionName(current_ea)
-		current_function_ea = idc.LocByName(current_function)
+    def _profile_function(self):
+        current_ea = idc.ScreenEA()
+        current_function = idc.GetFunctionName(current_ea)
+        current_function_ea = idc.LocByName(current_function)
 
-		if current_function:
-			self.function = current_function
+        if current_function:
+            self.function = current_function
 
-		ea = start_ea = idc.GetFunctionAttr(current_function_ea,  idc.FUNCATTR_START)
-		end_ea = idc.GetFunctionAttr(current_function_ea, idc.FUNCATTR_END)
+        ea = start_ea = idc.GetFunctionAttr(current_function_ea,  idc.FUNCATTR_START)
+        end_ea = idc.GetFunctionAttr(current_function_ea, idc.FUNCATTR_END)
 
-		self.highlighted = idaapi.get_highlighted_identifier()
+        self.highlighted = idaapi.get_highlighted_identifier()
 
-		while ea < end_ea and ea != idc.BADADDR and self.highlighted:
+        while ea < end_ea and ea != idc.BADADDR and self.highlighted:
 
-			i = 0
-			match = False
-			optype = self.READ
-			comment = None
+            i = 0
+            match = False
+            optype = self.READ
+            comment = None
 
-			idaapi.decode_insn(ea)
+            idaapi.decode_insn(ea)
 
-			mnem = idc.GetMnem(ea)
+            mnem = idc.GetMnem(ea)
 
-			if self.highlighted in mnem:
-				match = True
-			elif idaapi.is_call_insn(ea):
-				for xref in idautils.XrefsFrom(ea):
-					if xref.type != 21:
-						name = idc.Name(xref.to)
-						if name and self.highlighted in name:
-							match = True
-							break
-			else:
-				while True:
-					opnd = idc.GetOpnd(ea, i)
-					if opnd:
-						if self.highlighted in opnd:
-							match = True
-							if (idaapi.insn_t_get_canon_feature(idaapi.cmd.itype) & self.OPND_WRITE_FLAGS[i]):
-								optype = self.WRITE
-						i += 1
-					else:
-						break
+            if self.highlighted in mnem:
+                match = True
+            elif idaapi.is_call_insn(ea):
+                for xref in idautils.XrefsFrom(ea):
+                    if xref.type != 21:
+                        name = idc.Name(xref.to)
+                        if name and self.highlighted in name:
+                            match = True
+                            break
+            else:
+                while True:
+                    opnd = idc.GetOpnd(ea, i)
+                    if opnd:
+                        if self.highlighted in opnd:
+                            try:
+                                canon_feature = idaapi.insn_t_get_canon_feature(idaapi.cmd.ityp)
+                            except AttributeError:
+                                insn_t = idaapi.insn_t()
+                                canon_feature = insn_t.get_canon_feature()
+                            match = True
+                            if canon_feature & self.OPND_WRITE_FLAGS[i]:
+                                optype = self.WRITE
+                        i += 1
+                    else:
+                        break
 
-			if not match:
-				comment = idc.GetCommentEx(ea, 0)
-				if comment and self.highlighted in comment:
-					match = True
-				else:
-					comment = idc.GetCommentEx(ea, 1)
-					if comment and self.highlighted in comment:
-						match = True
-					else:
-						comment = None
+            if not match:
+                comment = idc.GetCommentEx(ea, 0)
+                if comment and self.highlighted in comment:
+                    match = True
+                else:
+                    comment = idc.GetCommentEx(ea, 1)
+                    if comment and self.highlighted in comment:
+                        match = True
+                    else:
+                        comment = None
 
-			if match:
-				if ea > current_ea:
-					direction = self.DOWN
-				elif ea < current_ea:
-					direction = self.UP
-				else:
-					direction = self.THIS
+            if match:
+                if ea > current_ea:
+                    direction = self.DOWN
+                elif ea < current_ea:
+                    direction = self.UP
+                else:
+                    direction = self.THIS
 
-				self.xrefs[ea] = {
-					'offset' 	: idc.GetFuncOffset(ea),
-					'mnem'	 	: mnem,
-					'type'		: optype,
-					'direction'	: direction,
-					'text'		: idc.GetDisasm(ea),
-				}
+                self.xrefs[ea] = {
+                    'offset'     : idc.GetFuncOffset(ea),
+                    'mnem'         : mnem,
+                    'type'        : optype,
+                    'direction'    : direction,
+                    'text'        : idc.GetDisasm(ea),
+                }
 
-			ea += idaapi.cmd.size
+            ea += idaapi.cmd.size
 
-	def highlight(self, highlight=True, mnem=None, optype=None, direction=None, text=None):
-		for (ea, info) in self.xrefs.iteritems():
-			if mnem and info['mnem'] != mnem:
-				highlight = False
-			elif optype and info['optype'] != optype:
-				highlight = False
-			elif direction and info['direction'] != direction:
-				highlight = False
-			elif text and info['text'] != text:
-				highlight = False
+    def highlight(self, highlight=True, mnem=None, optype=None, direction=None, text=None):
+        for (ea, info) in self.xrefs.iteritems():
+            if mnem and info['mnem'] != mnem:
+                highlight = False
+            elif optype and info['optype'] != optype:
+                highlight = False
+            elif direction and info['direction'] != direction:
+                highlight = False
+            elif text and info['text'] != text:
+                highlight = False
 
-			if highlight:
-				color = 0x00ff00
-			else:
-				color = idc.DEFCOLOR
+            if highlight:
+                color = 0x00ff00
+            else:
+                color = idc.DEFCOLOR
 
-			idc.SetColor(ea, idc.CIC_ITEM, color)
+            idc.SetColor(ea, idc.CIC_ITEM, color)
 
-	def unhighlight(self):
-		self.highlight(False)
+    def unhighlight(self):
+        self.highlight(False)
+
+
+def show_local_xrefs(arg=None):
+    delim = '-' * 86 + '\n'
+    header = '\nXrefs to %s from %s:\n'
+
+    global localxrefs
+    fmt = ''
+
+    r = LocalXrefs()
+    localxrefs = r
+
+    offsets = r.xrefs.keys()
+    offsets.sort()
+
+    if r.highlighted:
+        idaapi.msg(header % (r.highlighted, r.function))
+        idaapi.msg(delim)
+
+        for ea in offsets:
+            info = r.xrefs[ea]
+
+            if not fmt:
+                fmt = "%%s   %%s   %%-%ds   %%s\n" % (len(info['offset']) + 15)
+
+            idaapi.msg(fmt % (info['direction'], info['type'], info['offset'], info['text']))
+
+        idaapi.msg(delim)
+
+
+try:
+    class LocalXrefHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            global localxrefs
+            show_local_xrefs()
+            add_to_namespace('__main__', 'localxrefs', localxrefs)
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
 
 
 class localizedxrefs_t(idaapi.plugin_t):
-	flags = 0
-	comment = "IDA Localized Xrefs"
-	help = ""
-	wanted_name = "Localized Xrefs"
-	wanted_hotkey = ""
+    flags = 0
+    comment = "IDA Localized Xrefs"
+    help = ""
+    wanted_name = "Localized Xrefs"
+    wanted_hotkey = ""
+    menu_context = None
+    menu_name = 'List local xrefs'
+    action_name = 'localxrefs:action'
+    menu_tab = 'Jump/'
 
-	DELIM = '-' * 86 + '\n'
-	HEADER = '\nXrefs to %s from %s:\n'
+    def init(self):
+        if idaapi.IDA_SDK_VERSION >= 700:
+            action_desc = idaapi.action_desc_t(self.action_name,
+                                               self.menu_name,
+                                               LocalXrefHandler(),
+                                               self.wanted_hotkey,
+                                               'Localized Xrefs.',
+                                               199)
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(self.menu_tab, self.action_name, idaapi.SETMENU_APP)
+        else:
+            self.menu_context = idaapi.add_menu_item(self.menu_tab, self.menu_name, "", 0, show_local_xrefs, (None,))
+        return idaapi.PLUGIN_KEEP
 
-	def init(self):
-		self.menu_context = idaapi.add_menu_item("Jump/", "List local xrefs", "", 0, self.run, (None,))
-		return idaapi.PLUGIN_KEEP
+    def term(self):
+        if idaapi.IDA_SDK_VERSION >= 700:
+            idaapi.detach_action_from_menu(self.menu_tab, self.action_name)
+        else:
+            if self.menu_context is not None:
+                idaapi.del_menu_item(self.menu_context)
+        return None
 
-	def term(self):
-		idaapi.del_menu_item(self.menu_context)
-		return None
-
-	def run(self, arg):
-		global localxrefs
-		fmt = ''
-
-		r = LocalXrefs()
-		localxrefs = r
-
-		offsets = r.xrefs.keys()
-		offsets.sort()
-
-		if r.highlighted:
-			idaapi.msg(self.HEADER % (r.highlighted, r.function))
-			idaapi.msg(self.DELIM)
-
-			for ea in offsets:
-				info = r.xrefs[ea]
-
-				if not fmt:
-					fmt = "%%s   %%s   %%-%ds   %%s\n" % (len(info['offset']) + 15)
-
-				idaapi.msg(fmt % (info['direction'], info['type'], info['offset'], info['text']))
-
-			idaapi.msg(self.DELIM)
+    def run(self):
+        pass
 
 def PLUGIN_ENTRY():
-	return localizedxrefs_t()
+    return localizedxrefs_t()
 

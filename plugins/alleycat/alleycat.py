@@ -1,3 +1,4 @@
+import sys
 import idc
 import idaapi
 import idautils
@@ -10,6 +11,20 @@ import time
 #
 # This is global so it's easy to change from the IDAPython prompt.
 ALLEYCAT_LIMIT = 10000
+
+def add_to_namespace(namespace, source, name, variable):
+    '''
+    Add a variable to a different namespace, likely __main__.
+    '''
+    importer_module = sys.modules[namespace]
+    if source in sys.modules.keys():
+        reload(sys.modules[source])
+    else:
+        import importlib
+        m = importlib.import_module(source, None)
+        sys.modules[source] = m
+
+    setattr(importer_module, name, variable)
 
 class AlleyCatException(Exception):
     pass
@@ -94,6 +109,9 @@ class AlleyCat(object):
                 # Paths start with the end function and end with the start function; reverse it.
                 self._add_path(partial_paths.pop(0)[::-1])
 
+    def _get_code_block(self, ea):
+        return idaapi.get_func(ea)
+
 class AlleyCatFunctionPaths(AlleyCat):
 
     def __init__(self, start_ea, end_ea, quiet=False):
@@ -110,8 +128,6 @@ class AlleyCatFunctionPaths(AlleyCat):
 
         super(AlleyCatFunctionPaths, self).__init__(start, end, quiet)
 
-    def _get_code_block(self, ea):
-        return idaapi.get_func(ea)
 
 class AlleyCatCodePaths(AlleyCat):
 
@@ -421,6 +437,7 @@ class AlleyCatGraph(idaapi.GraphViewer):
         '''
         # This allows support of the function offset style names (e.g., main+0C)
         # TODO: Is there something in the IDA API that does this already??
+        ea = 0
         if '+' in name:
             (func_name, offset) = name.split('+')
             base_ea = idc.LocByName(func_name)
@@ -485,50 +502,10 @@ class AlleyCatGraph(idaapi.GraphViewer):
             for ea in path:
                 self.unhighlight(ea)
 
-class idapathfinder_t(idaapi.plugin_t):
 
-    flags = 0
-    comment = ''
-    help = ''
-    wanted_name = 'AlleyCat'
-    wanted_hotkey = ''
-
-    def init(self):
-        ui_path = "View/Graphs/"
-        self.menu_contexts = []
-        self.graph = None
-
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths to the current function from...",
-                                "",
-                                0,
-                                self.FindPathsFromMany,
-                                (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths from the current function to...",
-                                "",
-                                0,
-                                self.FindPathsToMany,
-                                (None,)))
-        self.menu_contexts.append(idaapi.add_menu_item(ui_path,
-                                "Find paths in the current function to the current code block",
-                                "",
-                                0,
-                                self.FindPathsToCodeBlock,
-                                (None,)))
-
-        return idaapi.PLUGIN_KEEP
-
-    def term(self):
-        for context in self.menu_contexts:
-            idaapi.del_menu_item(context)
-        return None
-
-    def run(self, arg):
-        pass
-
+class AlleyCatPaths(object):
     def _current_function(self):
-        return idaapi.get_func(ScreenEA()).startEA
+        return idaapi.get_func(idc.ScreenEA()).startEA
 
     def _find_and_plot_paths(self, sources, targets, klass=AlleyCatFunctionPaths):
         results = []
@@ -568,7 +545,8 @@ class idapathfinder_t(idaapi.plugin_t):
             current_function = None
 
         while True:
-            function = idc.ChooseFunction("Select a function and click 'OK' until all functions have been selected. When finished, click 'Cancel' to display the graph.")
+            function = idc.ChooseFunction(
+                "Select a function and click 'OK' until all functions have been selected. When finished, click 'Cancel' to display the graph.")
             # ChooseFunction automatically jumps to the selected function
             # if the enter key is pressed instead of clicking 'OK'. Annoying.
             if idc.ScreenEA() != ea:
@@ -584,14 +562,14 @@ class idapathfinder_t(idaapi.plugin_t):
 
         return functions
 
-    def FindPathsToCodeBlock(self, arg):
+    def FindPathsToCodeBlock(self):
         target = idc.ScreenEA()
         source = self._current_function()
 
         if source:
             self._find_and_plot_paths([source], [target], klass=AlleyCatCodePaths)
 
-    def FindPathsToMany(self, arg):
+    def FindPathsToMany(self):
         source = self._current_function()
 
         if source:
@@ -599,13 +577,144 @@ class idapathfinder_t(idaapi.plugin_t):
             if targets:
                 self._find_and_plot_paths([source], targets)
 
-    def FindPathsFromMany(self, arg):
+    def FindPathsFromMany(self):
         target = self._current_function()
 
         if target:
             sources = self._get_user_selected_functions(many=True)
             if sources:
                 self._find_and_plot_paths(sources, [target])
+
+
+# Helper functions to execute commands selected from dropdown menus.
+# args parameter is required for IDA version < 7.0
+def find_paths_from_many(arg=None):
+    AlleyCatPaths().FindPathsFromMany()
+
+
+def find_paths_to_many(arg=None):
+    AlleyCatPaths().FindPathsToMany()
+
+
+def find_paths_to_code_block(args=None):
+    AlleyCatPaths().FindPathsToCodeBlock()
+
+
+try:
+    class ToCurrentFromAction(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            find_paths_from_many()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+
+
+    class FromCurrentToAction(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            find_paths_to_many()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+
+    class InCurrentFunctionToCurrentCodeBlockAction(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            find_paths_to_code_block()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+
+class idapathfinder_t(idaapi.plugin_t):
+    flags = 0
+    comment = ''
+    help = ''
+    wanted_name = 'AlleyCat'
+    wanted_hotkey = ''
+    menu_name = 'View/Graphs/'
+    menu_context = []
+
+    to_from_action_name = 'tocurrfrom:action'
+    from_to_action_name = 'fromcurrto:action'
+    curr_func_curr_block_action_name = 'currfunccurrblock:action'
+
+    to_from_menu_name = 'Find paths to the current function from...'
+    from_to_menu_name = 'Find paths from the current function to...'
+    curr_func_curr_block_menu_name = 'Find paths in the current function to the current code block'
+
+    def init(self):
+        if idaapi.IDA_SDK_VERSION >= 700:
+            # Add ALLEYCAT_LIMIT variable to the global namespace so it can be accessed from the IDA python terminal.
+            global ALLEYCAT_LIMIT
+            add_to_namespace('__main__', 'alleycat', 'ALLEYCAT_LIMIT', ALLEYCAT_LIMIT)
+
+            # Add functions to global namespace.
+            add_to_namespace('__main__', 'alleycat', 'AlleyCatFunctionPaths', AlleyCatFunctionPaths)
+            add_to_namespace('__main__', 'alleycat', 'AlleyCatCodePaths', AlleyCatCodePaths)
+            add_to_namespace('__main__', 'alleycat', 'AlleyCatGraph', AlleyCatGraph)
+
+            to_curr_from_desc = idaapi.action_desc_t(self.to_from_action_name,
+                                                     self.to_from_menu_name,
+                                                     ToCurrentFromAction(),
+                                                     self.wanted_hotkey,
+                                                     'Find paths to the current function from...',
+                                                     199)
+
+            from_curr_to_desc = idaapi.action_desc_t(self.from_to_action_name,
+                                                     self.from_to_menu_name,
+                                                     FromCurrentToAction(),
+                                                     self.wanted_hotkey,
+                                                     'Find paths from the current function to...',
+                                                     199)
+
+            curr_func_to_block_desc = idaapi.action_desc_t(self.curr_func_curr_block_action_name,
+                                                           self.curr_func_curr_block_menu_name,
+                                                           InCurrentFunctionToCurrentCodeBlockAction(),
+                                                           self.wanted_hotkey,
+                                                           'Find paths in the current function to the current code block',
+                                                           199)
+
+            idaapi.register_action(to_curr_from_desc)
+            idaapi.register_action(from_curr_to_desc)
+            idaapi.register_action(curr_func_to_block_desc)
+
+            idaapi.attach_action_to_menu(self.menu_name, self.to_from_action_name, idaapi.SETMENU_APP)
+            idaapi.attach_action_to_menu(self.menu_name, self.from_to_action_name, idaapi.SETMENU_APP)
+            idaapi.attach_action_to_menu(self.menu_name, self.curr_func_curr_block_action_name, idaapi.SETMENU_APP)
+
+        else:
+            self.menu_context.append(idaapi.add_menu_item(self.menu_name, self.to_from_menu_name, "", 0, find_paths_from_many, (None,)))
+            self.menu_context.append(idaapi.add_menu_item(self.menu_name, self.from_to_menu_name, "", 0, find_paths_to_many, (None,)))
+            self.menu_context.append(idaapi.add_menu_item(self.menu_name, self.curr_func_curr_block_menu_name, "", 0, find_paths_to_code_block, (None,)))
+
+        return idaapi.PLUGIN_KEEP
+
+    def term(self):
+        if idaapi.IDA_SDK_VERSION >= 700:
+            idaapi.detach_action_from_menu(self.menu_name, self.to_from_action_name)
+            idaapi.detach_action_from_menu(self.menu_name, self.from_to_action_name)
+            idaapi.detach_action_from_menu(self.menu_name, self.curr_func_curr_block_action_name)
+        else:
+            for context in self.menu_context:
+                idaapi.del_menu_item(context)
+        return None
+
+    def run(self, arg):
+        pass
+
 
 def PLUGIN_ENTRY():
     return idapathfinder_t()

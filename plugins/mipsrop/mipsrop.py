@@ -64,11 +64,28 @@
 
 import re
 import idc
+import sys
 import idaapi
 import idautils
 
 # Global instance of MIPSROPFinder
 mipsrop = None
+
+
+def add_to_namespace(namespace, name, variable):
+    '''
+    Add a variable to a different namespace, likely __main__.
+    '''
+    importer_module = sys.modules[namespace]
+    if name in sys.modules.keys():
+        reload(sys.modules[name])
+    else:
+        import importlib
+        m = importlib.import_module(name, None)
+        sys.modules[name] = m
+
+    setattr(importer_module, name, variable)
+
 
 class MIPSInstruction(object):
     '''
@@ -236,7 +253,7 @@ class MIPSROPFinder(object):
         op_ok_cnt = 0
         match = False
         ins_size = idaapi.decode_insn(ea)
-        mnem = GetMnem(ea)
+        mnem = idc.GetMnem(ea)
 
         if (not instruction.mnem) or (instruction.mnem == mnem) or (regex and re.match(instruction.mnem, mnem)):
             for operand in instruction.operands:
@@ -258,13 +275,15 @@ class MIPSROPFinder(object):
 
     def _is_bad_instruction(self, ea, bad_instructions=['j', 'b'], no_clobber=[]):
         bad = False
-        mnem = GetMnem(ea)
+        mnem = idc.GetMnem(ea)
 
         if mnem and mnem[0] in bad_instructions:
             bad = True
         else:
+            insn_t = idaapi.insn_t()
             for register in no_clobber:
-                if (idaapi.insn_t_get_canon_feature(idaapi.cmd.itype) & idaapi.CF_CHG1) == idaapi.CF_CHG1:
+                #if (insn_t.get_canon_feature(idaapi.cmd.itype) & idaapi.CF_CHG1) == idaapi.CF_CHG1:
+                if (insn_t.get_canon_feature() & idaapi.CF_CHG1) == idaapi.CF_CHG1:
                     if idc.GetOpnd(ea, 0) == register:
                         bad = True
 
@@ -692,19 +711,57 @@ class MIPSROPFinder(object):
         print self.summary.__doc__
 
 
+try:
+    class MipsRopHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            global mipsrop
+            mipsrop = MIPSROPFinder()
+            add_to_namespace('__main__', 'mipsrop', mipsrop)
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+
 class mipsropfinder_t(idaapi.plugin_t):
     flags = 0
-    comment = "MIPS ROP Finder"
-    help = ""
+    comment = 'MIPS ROP Finder'
+    help = ''
+    action_name = 'mipsrop:action'
     wanted_name = "MIPS ROP Finder"
     wanted_hotkey = ""
+    wanted_tooltip = "MIPS ROP Gadget Finder"
+    root_tab = 'Search/'
+    menu_name = 'mips rop gadgets'
+    menu_context = None
 
     def init(self):
-        self.menu_context = idaapi.add_menu_item("Search/", "mips rop gadgets", "", 0, self.run, (None,))
+        if idaapi.IDA_SDK_VERSION >= 700:
+            # 199 is a default icon.
+            action_desc = idaapi.action_desc_t(self.action_name,
+                                               self.menu_name,
+                                               MipsRopHandler(),
+                                               self.wanted_hotkey,
+                                               self.wanted_tooltip,
+                                               199)
+
+            idaapi.register_action(action_desc)
+            idaapi.attach_action_to_menu(self.root_tab, self.action_name, idaapi.SETMENU_APP)
+        else:
+            self.menu_context = idaapi.add_menu_item("Search/", self.menu_name, "", 0, self.run, (None,))
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context)
+        if idaapi.IDA_SDK_VERSION >= 700:
+            idaapi.detach_action_from_menu(self.root_tab, self.action_name)
+        else:
+            if self.menu_context is not None:
+                idaapi.del_menu_item(self.menu_context)
         return None
 
     def run(self, arg):

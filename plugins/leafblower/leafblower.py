@@ -342,7 +342,12 @@ class ArgParser(object):
                             # If we couldn't figure out where the function call was going to, just quit
                             break
 
-                        if idaapi.is_basic_block_end(ea):
+                        try:
+                            is_block_end = idaapi.is_basic_block_end(ea)
+                        except TypeError:
+                            is_block_end = idaapi.is_basic_block_end(ea, True)
+
+                        if is_block_end:
                             break
 
                         # TODO: Use idc.NextHead(ea) instead...
@@ -490,6 +495,42 @@ class FormatStringFunctionFinder(object):
         # Sort format string functions by xref count, largest first
         self.functions.sort(key=lambda f: f.xrefs, reverse=True)
 
+
+def leaf_from_menu(arg=None):
+    LeafBlowerFunctionChooser(LeafFunctionFinder()).show()
+
+
+def format_from_menu(arg=None):
+    LeafBlowerFunctionChooser(FormatStringFunctionFinder()).show()
+
+
+try:
+    class LeafFunctionAction(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            leaf_from_menu()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+
+
+    class FormatStringFunctionAction(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            format_from_menu()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+
 class leaf_blower_t(idaapi.plugin_t):
 
     flags = 0
@@ -497,25 +538,53 @@ class leaf_blower_t(idaapi.plugin_t):
     help = ''
     wanted_name = 'leafblower'
     wanted_hotkey = ''
+    leaf_function_action_name = 'leaffunction:action'
+    format_string_action_name = 'formatstring:action'
+    leaf_function_name = 'leaf functions'
+    format_string_name = 'format string functions'
+    leaf_function_tooltip = 'Find leaf functions'
+    format_string_tooltip = 'Find format string functions'
+    menu_tab = 'Search/'
+    menu_context = []
 
     def init(self):
-        self.leaf_context_menu = idaapi.add_menu_item("Search/", "leaf functions", "", 0, self.LeafFromMenu, (None,))
-        self.stdio_context_menu = idaapi.add_menu_item("Search/", "format string functions", "", 0, self.FormatFromMenu, (None,))
+        if idaapi.IDA_SDK_VERSION >= 700:
+            leaf_desc = idaapi.action_desc_t(self.leaf_function_action_name,
+                                             self.leaf_function_name,
+                                             LeafFunctionAction(),
+                                             self.wanted_hotkey,
+                                             self.leaf_function_tooltip,
+                                             199)
+            format_string_desc = idaapi.action_desc_t(self.format_string_action_name,
+                                                      self.format_string_name,
+                                                      FormatStringFunctionAction(),
+                                                      self.wanted_hotkey,
+                                                      self.format_string_tooltip,
+                                                      199)
+
+            idaapi.register_action(leaf_desc)
+            idaapi.register_action(format_string_desc)
+
+            idaapi.attach_action_to_menu(self.menu_tab, self.leaf_function_action_name, idaapi.SETMENU_APP)
+            idaapi.attach_action_to_menu(self.menu_tab, self.format_string_action_name, idaapi.SETMENU_APP)
+        else:
+            self.menu_context.append(idaapi.add_menu_item(self.menu_tab, self.leaf_function_name, "", 0, leaf_from_menu, (None,)))
+            self.menu_context.append(idaapi.add_menu_item(self.menu_tab, self.format_string_name, "", 0, format_from_menu, (None,)))
+
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.leaf_context_menu)
-        idaapi.del_menu_item(self.stdio_context_menu)
+        if idaapi.IDA_SDK_VERSION >= 700:
+            idaapi.detach_action_from_menu(self.menu_tab, self.leaf_function_action_name)
+            idaapi.detach_action_from_menu(self.menu_tab, self.format_string_action_name)
+        else:
+            for context in self.menu_context:
+                idaapi.del_menu_item(context)
         return None
 
     def run(self):
         pass
 
-    def LeafFromMenu(self, arg):
-        LeafBlowerFunctionChooser(LeafFunctionFinder()).show()
-
-    def FormatFromMenu(self, arg):
-        LeafBlowerFunctionChooser(FormatStringFunctionFinder()).show()
 
 def PLUGIN_ENTRY():
     return leaf_blower_t()
