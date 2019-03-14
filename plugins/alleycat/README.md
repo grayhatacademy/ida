@@ -46,14 +46,15 @@ Python> print AlleyCatFunctionPaths(ScreenEA(), idc.LocByName('strcpy')).paths
 To generate a list of unique paths from the between two code blocks inside a function, use the `AlleyCatCodePaths` class:
 
 ```
-Python> print AlleyCatCodePaths(idaapi.get_func(idc.ScreenEA()).startEA, idc.ScreenEA())
+Python> print AlleyCatCodePaths(idaapi.get_func(idc.ScreenEA()).startEA, idc.ScreenEA()).paths
 ```
 
 To create an interactive graph, use the `AlleyCatGraph` class:
 
 ```
 Python> paths = AlleyCatFunctionPaths(ScreenEA(), idc.LocByName('strcpy')).paths
-Python> AlleyCatGraph(paths)
+Python> graph = AlleyCatGraph(paths)
+Python> graph.Show()
 ```
 
 Installation

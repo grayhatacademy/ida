@@ -220,40 +220,124 @@ class IDAFunctionProfilerChooser(idaapi.Choose2):
 
             print "Renamed %d functions" % count
 
+
+def from_function_profiler(arg=None):
+    try:
+        chooser = IDAFunctionProfilerChooser()
+        cur_loc = idc.ScreenEA()
+        func = idaapi.get_func(cur_loc)
+        if func:
+            chooser.set_internal_filter(functions=set([func.startEA]))
+        else:
+            raise Exception("Can't limit profile to just this function, because 0x%X is not inside a function!" % cur_loc)
+        chooser.show()
+    except Exception as e:
+        print "IDAFunctionProfiler ERROR: %s" % str(e)
+
+
+def all_functions_profiler(arg=None):
+     try:
+        chooser = IDAFunctionProfilerChooser()
+        chooser.show()
+     except Exception as e:
+        print "IDAFunctionProfiler ERROR: %s" % str(e)
+
+
+try:
+    class FunctionProfilerFromFunctionActionHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            from_function_profiler()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+
+
+    class FunctionProfilerAllFunctionsActionHandler(idaapi.action_handler_t):
+        def __init__(self):
+            idaapi.action_handler_t.__init__(self)
+
+        def activate(self, ctx):
+            all_functions_profiler()
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_ALWAYS
+except AttributeError:
+    pass
+
+
 class IDAFunctionProfilerPlugin(idaapi.plugin_t):
     flags = 0
     comment = "Function xref profiler"
     help = ""
     wanted_name = "Function Profiler"
     wanted_hotkey = ""
+    xref_current_func_action_name = 'xrefcurrentfunction:action'
+    all_xref_action_name = 'allxrefs:action'
+    xref_current_func_menu_name = 'Xrefs from the current function'
+    all_xref_menu_name = 'All function xrefs'
+    menu_tab = 'View/Open subviews/'
+    menu_context = []
 
     def init(self):
-        self.menu_context_2 = idaapi.add_menu_item("View/Open subviews/", "Xrefs from the current function", "", 0, self.run, (True,))
-        self.menu_context_1 = idaapi.add_menu_item("View/Open subviews/", "All function xrefs", "", 0, self.run, (False,))
+        if idaapi.IDA_SDK_VERSION >= 700:
+            xref_current_func_desc = idaapi.action_desc_t(self.xref_current_func_action_name,
+                                                          self.xref_current_func_menu_name,
+                                                          FunctionProfilerFromFunctionActionHandler(),
+                                                          self.wanted_hotkey,
+                                                          'Xrefs from the current function.',
+                                                          199)
+
+            all_xref_desc = idaapi.action_desc_t(self.all_xref_action_name,
+                                                 self.all_xref_menu_name,
+                                                 FunctionProfilerAllFunctionsActionHandler(),
+                                                 self.wanted_hotkey,
+                                                 'All functions xref.',
+                                                 199)
+
+            idaapi.register_action(xref_current_func_desc)
+            idaapi.register_action(all_xref_desc)
+
+            idaapi.attach_action_to_menu(self.menu_tab, self.xref_current_func_action_name, idaapi.SETMENU_APP)
+            idaapi.attach_action_to_menu(self.menu_tab, self.all_xref_action_name, idaapi.SETMENU_APP)
+        else:
+            self.menu_context.append(
+                idaapi.add_menu_item(self.menu_tab,
+                                     self.xref_current_func_menu_name,
+                                     "",
+                                     0,
+                                     from_function_profiler,
+                                     (True,)))
+
+            self.menu_context.append(
+                idaapi.add_menu_item(self.menu_tab,
+                                     self.all_xref_menu_name,
+                                     "",
+                                     0,
+                                     all_functions_profiler,
+                                     (False,)))
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context_1)
-        idaapi.del_menu_item(self.menu_context_2)
+        if idaapi.IDA_SDK_VERSION >= 700:
+            idaapi.detach_action_from_menu(self.menu_tab, self.xref_current_func_action_name)
+            idaapi.detach_action_from_menu(self.menu_tab, self.all_xref_action_name)
+        else:
+            for context in self.menu_context:
+                idaapi.del_menu_item(context)
         return None
 
-    def run(self, just_this_function=False):
-        try:
-            chooser = IDAFunctionProfilerChooser()
-            if just_this_function:
-                cur_loc = idc.ScreenEA()
-                func = idaapi.get_func(cur_loc)
-                if func:
-                    chooser.set_internal_filter(functions=set([func.startEA]))
-                else:
-                    raise Exception("Can't limit profile to just this function, because 0x%X is not inside a function!" % cur_loc)
-            chooser.show()
-        except Exception as e:
-            print "IDAFunctionProfiler ERROR: %s" % str(e)
+    def run(self):
+        pass
 
 def IDAFunctionProfilerRefresh():
     global IDA_FUNCTION_PROFILES
     IDA_FUNCTION_PROFILES = IDAFunctionProfiler()
+
 
 def PLUGIN_ENTRY():
     return IDAFunctionProfilerPlugin()
