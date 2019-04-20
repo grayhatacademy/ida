@@ -460,7 +460,7 @@ class MIPSROPFinder(object):
     def _get_marked_gadgets(self):
         rop_gadgets = {}
 
-        for i in range(1, 1024):
+        for i in range(0 if idaapi.IDA_SDK_VERSION >= 700 else 1, 1024):
             marked_pos = idc.GetMarkedPos(i)
             if marked_pos != idc.BADADDR:
                 marked_comment = idc.GetMarkComment(i)
