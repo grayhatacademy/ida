@@ -221,6 +221,95 @@ class StructFinder(object):
 
         print "Renamed %d functions!" % count
 
+class FunctionNameology(object):
+
+    def __init__(self):
+        pass
+
+    def rename_functions(self, debug=True, dry_run=False):
+        '''
+        Renames functions starting with "sub_" based on unique string xrefs.
+
+        @debug   - Set to False to supress debug output.
+        @dry_run - Set to True to perform a dry run (functions will not actually be renamed).
+
+        Returns the number of renamed functions.
+        '''
+        count = 0
+
+        for (function_address, function_name) in self.func2str_mappings().iteritems():
+            if idc.Name(function_address).startswith("sub_"):
+                if dry_run == True or idc.MakeName(function_address, function_name) == True:
+                    if debug == True:
+                        print "0x%.8X  =>  %s" % (function_address, function_name)
+                    count += 1
+
+        if debug == True:
+            print "Renamed %d functions based on unqiue string xrefs!" % count
+
+        return count
+
+    def func2str_mappings(self):
+        '''
+        Resolve unique mappings between functions and strings that those functions reference.
+
+        Returns a dictionary of {int(function_address) : str(function_name)}.
+        '''
+        function_map = {}
+
+        for string in idautils.Strings():
+            if self.is_valid_function_name(str(string)):
+                function_address = self.str2func(string.ea)
+                if function_address is not None:
+                    if not function_map.has_key(function_address):
+                        function_map[function_address] = []
+                    function_map[function_address].append(str(string))
+
+        # Each function must have only one candidate string
+        for function_address in function_map.keys():
+            if len(function_map[function_address]) == 1:
+                function_map[function_address] = function_map[function_address][0]
+            else:
+                del function_map[function_address]
+
+        return function_map
+
+    def is_valid_function_name(self, string):
+        '''
+        Determines if a string is a valid function name.
+
+        @string - The string to check
+
+        Returns True or False.
+        '''
+        valid_first_characters = ['_'] + [chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)]
+        valid_characters = valid_first_characters + [chr(x) for x in range(48, 58)]
+
+        return (len(string) in range(1, 256) and
+                string[0] in valid_first_characters and
+                set(string) <= set(valid_characters))
+
+    def str2func(self, ea):
+        '''
+        Identifies a unique function associated with a given string.
+
+        @ea - The effective address of the string
+
+        Returns the address of the associated function, or None.
+        '''
+        functions = []
+
+        for xref in idautils.XrefsTo(ea):
+            func = idaapi.get_func(xref.frm)
+            if func and func.startEA not in functions:
+                functions.append(func.startEA)
+
+        # Each string must be referenced by only one function
+        if len(functions) == 1:
+            return functions[0]
+        else:
+            return None
+
 class Codatify(object):
     CODE = 2
     DATA = 3
@@ -396,6 +485,7 @@ def fix_data(arg=None):
     cd.datify()
     cd.pointify()
     StructFinder().parse_function_tables()
+    FunctionNameology().rename_functions()
 
 
 class codatify_t(idaapi.plugin_t):
