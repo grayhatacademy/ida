@@ -500,7 +500,7 @@ class RizzoPlugin(idaapi.plugin_t):
     menu_name = "Rizzo signature file..."
     produce_tooltip = "Produce rizzo signature file."
     load_tooltip = "Load rizzo signature file."
-    menu_tab = 'File'
+    menu_tab = 'File/'
     menu_context = []
 
     def init(self):
