@@ -367,15 +367,29 @@ class Rizzo(object):
         curname = idc.Name(ea)
         # Don't rename if the name is a special identifier, or if the ea has already been named
         # TODO: What's a better way to check for reserved name prefixes?
-        if curname.startswith('sub_') and name.split('_')[0] not in set(['sub', 'loc', 'unk', 'dword', 'word', 'byte']):
+        if name.split('_')[0] in set(['sub', 'loc', 'unk', 'dword', 'word', 'byte']):
+            #print "INFO: skipping rizzo signature of reserved name '%s'" % name
+            return 0
+
+        if curname.startswith('sub_'):
+            # Don't rename if the name already exists in the IDB -- try to look for an alternative name first
+            if idc.LocByName(name) != idc.BADADDR:
+                for i in range(1,16):
+                    alt_name = 'also_%s_%s' %(name, i)
+                    if idc.LocByName(alt_name) == idc.BADADDR:
+                            name = alt_name
+                            break
+
             # Don't rename if the name already exists in the IDB
             if idc.LocByName(name) == idc.BADADDR:
                 if idc.MakeName(ea, name):
                     idc.SetFunctionFlags(ea, (idc.GetFunctionFlags(ea) | idc.FUNC_LIB))
-                    #print "%s  =>  %s" % (curname, name)
+                    print "INFO: Renaming %s  =>  %s" % (curname, name)
                     return 1
-            #else:
-            #    print "WARNING: Attempted to rename '%s' => '%s', but '%s' already exists!" % (curname, name, name)
+            else:
+                print "WARNING: Attempted to rename '%s' => '%s', but '%s' already exists!" % (curname, name, name)
+        else:
+            print "WARNING: Attempted to rename '%s' => '%s', but '%s' is already 'named'" % (curname, name, curname)
         return 0
 
     def apply(self, extsigs):
