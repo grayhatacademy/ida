@@ -390,7 +390,8 @@ class MIPSROPFinder(object):
 
         for xref in idautils.XrefsTo(idc.LocByName('system')):
             ea = xref.frm
-            if ea >= start_ea and ea <= end_ea and idc.GetMnem(ea)[0] in ['j', 'b']:
+            mnem = idc.GetMnem(ea)
+            if mnem and ea >= start_ea and ea <= end_ea and mnem[0] in ['j', 'b']:
                 a0_ea = self._find_next_instruction_ea(ea+self.INSIZE, stack_arg_zero, ea+self.INSIZE)
                 if a0_ea == idc.BADADDR:
                     a0_ea = self._find_prev_instruction_ea(ea, stack_arg_zero, ea-(self.SEARCH_DEPTH*self.INSIZE))
@@ -460,7 +461,7 @@ class MIPSROPFinder(object):
     def _get_marked_gadgets(self):
         rop_gadgets = {}
 
-        for i in range(1, 1024):
+        for i in range(0 if idaapi.IDA_SDK_VERSION >= 700 else 1, 1024):
             marked_pos = idc.GetMarkedPos(i)
             if marked_pos != idc.BADADDR:
                 marked_comment = idc.GetMarkComment(i)
