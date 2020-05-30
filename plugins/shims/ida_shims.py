@@ -769,3 +769,18 @@ def set_func_flags(ea, flags):
     if idaapi.IDA_SDK_VERSION >= 700:
         return fn(ea, idc.FUNCATTR_FLAGS, flags)
     return fn(ea, flags)
+
+
+def get_func_flags(ea):
+    """
+    Get function flags.
+
+    :param ea: Any address belonging to the function.
+    :type ea: int
+
+    :return: Flags
+    """
+    fn = _get_fn_by_version(idc, 'get_func_attr', 'GetFunctionFlags')
+    if idaapi.IDA_SDK_VERSION >= 700:
+        return fn(ea, idc.FUNCATTR_FLAGS)
+    return fn(ea)

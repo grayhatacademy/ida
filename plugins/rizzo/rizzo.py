@@ -416,7 +416,7 @@ class Rizzo(object):
             if ida_shims.get_name_ea_simple(name) == idc.BADADDR:
                 if ida_shims.set_name(ea, name):
                     ida_shims.set_func_flags(
-                        ea, (idc.GetFunctionFlags(ea) | idc.FUNC_LIB))
+                        ea, (ida_shims.get_func_flags(ea) | idc.FUNC_LIB))
                     return 1
         return 0
 
