@@ -1,23 +1,25 @@
-# IDA plugin to name stack variables that are simply used to store register values until a function returns ($ra, $s0-$s7, $fp, $gp).
+# IDA plugin to name stack variables that are simply used to store register
+# values until a function returns ($ra, $s0-$s7, $fp, $gp).
 #
 # Invoke by going to Options->Name saved registers.
 #
 # Craig Heffner
 # Tactical Network Solutions
 
-import idc
 import idaapi
 import idautils
 
+from shims import ida_shims
+
 
 class NameMIPSSavedRegisters(object):
-
     INSIZE = 4
     SEARCH_DEPTH = 25
 
     ARCH = {
-            'arguments'    : ['$a0', '$a1', '$a2', '$a3'],
-            'savedregs'    : ['$s0', '$s1', '$s2', '$s3', '$s4', '$s5', '$s6', '$s7', '$fp', '$gp', '$ra'],
+            'arguments': ['$a0', '$a1', '$a2', '$a3'],
+            'savedregs': ['$s0', '$s1', '$s2', '$s3', '$s4', '$s5', '$s6',
+                          '$s7', '$fp', '$gp', '$ra'],
     }
 
     def __init__(self):
@@ -29,15 +31,26 @@ class NameMIPSSavedRegisters(object):
             last_iteration = False
 
             while mea < (ea + (self.INSIZE * self.SEARCH_DEPTH)):
-                mnem = idc.GetMnem(mea)
+                mnem = ida_shims.print_insn_mnem(mea)
 
                 if mnem in ['sw', 'sd']:
-                    reg = idc.GetOpnd(mea, 0)
-                    dst = idc.GetOpnd(mea, 1)
+                    reg = ida_shims.print_operand(mea, 0)
+                    dst = ida_shims.print_operand(mea, 1)
 
-                    if reg in self.ARCH['savedregs'] and reg not in named_regs and dst.endswith('($sp)') and 'var_' in dst:
-                        offset = int(dst.split('var_')[1].split('(')[0], 16)
-                        idc.MakeLocal(ea, idc.FindFuncEnd(ea), "[sp-%d]" % offset, "saved_%s" % reg[1:])
+                    if reg in self.ARCH['savedregs'] and \
+                            reg not in named_regs and \
+                            dst.endswith('($sp)') and 'var_' in dst:
+                        split_string = 'var_'
+                        stack_position = "[sp-%d]"
+                        if '_s' in dst:
+                            split_string += 's'
+                            stack_position = "[sp+%d]"
+
+                        offset = int(dst.split(split_string)[1].split('(')[0],
+                                     16)
+                        ida_shims.define_local_var(
+                            ea, ida_shims.find_func_end(ea),
+                            stack_position % offset, "saved_%s" % reg[1:])
                         named_regs.append(reg)
 
                 if last_iteration:
@@ -90,7 +103,8 @@ class mips_saved_registers_t(idaapi.plugin_t):
                                                self.wanted_tooltip,
                                                199)
             idaapi.register_action(action_desc)
-            idaapi.attach_action_to_menu(self.menu_tab, self.action_name, idaapi.SETMENU_APP)
+            idaapi.attach_action_to_menu(
+                self.menu_tab, self.action_name, idaapi.SETMENU_APP)
         else:
             self.menu_context = idaapi.add_menu_item(self.menu_tab,
                                                      self.menu_name,
@@ -114,4 +128,3 @@ class mips_saved_registers_t(idaapi.plugin_t):
 
 def PLUGIN_ENTRY():
     return mips_saved_registers_t()
-

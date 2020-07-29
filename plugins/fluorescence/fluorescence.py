@@ -3,13 +3,16 @@ import idc
 import idaapi
 import idautils
 
-class CallHighlighter(object):
+from shims import ida_shims
 
-    COLOR = 0xFF99FF #BBGGRR
+
+class CallHighlighter(object):
+    COLOR = 0xFF99FF  # BBGGRR
 
     def highlight(self):
         for ea in idautils.Heads():
-            if idaapi.isCode(idaapi.getFlags(ea)) and idaapi.is_call_insn(ea):
+            flags = ida_shims.get_full_flags(ea)
+            if ida_shims.is_code(flags) and idaapi.is_call_insn(ea):
                 current_color = idaapi.get_item_color(ea)
                 if current_color == self.COLOR:
                     idaapi.set_item_color(ea, idc.DEFCOLOR)
@@ -45,22 +48,28 @@ class fluorescence_blower_t(idaapi.plugin_t):
 
     def init(self):
         if idaapi.IDA_SDK_VERSION >= 700:
-            fluorescence_desc = idaapi.action_desc_t(self.fluorescence_action_name,
-                                                     self.menu_name,
-                                                     FluorescenceActionHandler(),
-                                                     self.wanted_hotkey,
-                                                     'Highlights function calls.',
-                                                     199)
+            fluorescence_desc = idaapi.action_desc_t(
+                self.fluorescence_action_name, self.menu_name,
+                FluorescenceActionHandler(), self.wanted_hotkey,
+                'Highlights function calls.', 199)
 
             idaapi.register_action(fluorescence_desc)
-            idaapi.attach_action_to_menu(self.menu_tab, self.fluorescence_action_name, idaapi.SETMENU_APP)
+            idaapi.attach_action_to_menu(self.menu_tab,
+                                         self.fluorescence_action_name,
+                                         idaapi.SETMENU_APP)
         else:
-            self.context_menu = idaapi.add_menu_item(self.menu_tab, self.menu_name, "", 0, self.highlight, (None,))
+            self.context_menu = idaapi.add_menu_item(self.menu_tab,
+                                                     self.menu_name,
+                                                     "",
+                                                     0,
+                                                     self.highlight,
+                                                     (None,))
         return idaapi.PLUGIN_KEEP
 
     def term(self):
         if idaapi.IDA_SDK_VERSION >= 700:
-            idaapi.detach_action_from_menu(self.menu_tab, self.fluorescence_action_name)
+            idaapi.detach_action_from_menu(self.menu_tab,
+                                           self.fluorescence_action_name)
         else:
             if self.context_menu is not None:
                 idaapi.del_menu_item(self.context_menu)
