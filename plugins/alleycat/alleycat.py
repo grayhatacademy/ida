@@ -19,11 +19,11 @@ def add_to_namespace(namespace, source, name, variable):
     '''
     Add a variable to a different namespace, likely __main__.
     '''
+    import importlib
     importer_module = sys.modules[namespace]
-    if source in sys.modules.keys():
-        reload(sys.modules[source])
+    if source in list(sys.modules.keys()):
+        importlib.reload(sys.modules[source])
     else:
-        import importlib
         m = importlib.import_module(source, None)
         sys.modules[source] = m
 
@@ -56,8 +56,8 @@ class AlleyCat(object):
         # We work backwards via xrefs, so we start at the end and end at the
         # start
         if not self.quiet:
-            print "Generating call paths from %s to %s..." % (self._name(end),
-                                                              self._name(start))
+            print("Generating call paths from %s to %s..." % (self._name(end),
+                                                              self._name(start)))
         self._build_paths(start, end)
 
     def _name(self, ea):
@@ -442,7 +442,7 @@ class AlleyCatGraph(idaapi.GraphViewer):
         xref_locations = []
         node_ea = self.get_ea_by_name(self[node_id])
 
-        if self.edges.has_key(node_id):
+        if node_id in self.edges:
             for edge_node_id in self.edges[node_id]:
 
                 edge_node_name = self[edge_node_id]
@@ -457,14 +457,14 @@ class AlleyCatGraph(idaapi.GraphViewer):
         if xref_locations:
             xref_locations.sort()
 
-            print ""
-            print "Path Xrefs from %s:" % self[node_id]
-            print "-" * 100
+            print("")
+            print("Path Xrefs from %s:" % self[node_id])
+            print("-" * 100)
             for (xref_ea, dst_ea) in xref_locations:
-                print "%-50s  =>  %s" % (self.get_name_by_ea(xref_ea),
-                                         self.get_name_by_ea(dst_ea))
-            print "-" * 100
-            print ""
+                print("%-50s  =>  %s" % (self.get_name_by_ea(xref_ea),
+                                         self.get_name_by_ea(dst_ea)))
+            print("-" * 100)
+            print("")
 
             ida_shims.jumpto(xref_locations[0][0])
         else:
@@ -571,7 +571,7 @@ class AlleyCatPaths(object):
                 s = time.time()
                 r = klass(source, target).paths
                 e = time.time()
-                print "Found %d paths in %f seconds." % (len(r), (e-s))
+                print("Found %d paths in %f seconds." % (len(r), (e-s)))
 
                 if r:
                     results += r
@@ -579,7 +579,7 @@ class AlleyCatPaths(object):
                     name = ida_shims.get_name(target)
                     if not name:
                         name = "0x%X" % target
-                    print "No paths found to", name
+                    print("No paths found to", name)
 
         if results:
             # Be sure to close any previous graph before creating a new one.

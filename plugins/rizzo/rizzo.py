@@ -60,17 +60,17 @@ class RizzoSignatures(object):
         if not self.SHOW:
             return
 
-        print "\n\nGENERATED FORMAL SIGNATURES FOR:"
-        for (key, ea) in self.formal.iteritems():
+        print("\n\nGENERATED FORMAL SIGNATURES FOR:")
+        for (key, ea) in self.formal.items():
             func = RizzoFunctionDescriptor(self.formal, self.functions, key)
             if func.name in self.SHOW:
-                print func.name
+                print(func.name)
 
-        print "\n\nGENERATRED FUZZY SIGNATURES FOR:"
-        for (key, ea) in self.fuzzy.iteritems():
+        print("\n\nGENERATED FUZZY SIGNATURES FOR:")
+        for (key, ea) in self.fuzzy.items():
             func = RizzoFunctionDescriptor(self.fuzzy, self.functions, key)
             if func.name in self.SHOW:
-                print func.name
+                print(func.name)
 
 
 class RizzoStringDescriptor(object):
@@ -141,25 +141,25 @@ class Rizzo(object):
         self.signatures = self.generate()
         end = time.time()
 
-        print "Generated %d formal signatures and %d fuzzy signatures for %d " \
+        print("Generated %d formal signatures and %d fuzzy signatures for %d " \
               "functions in %.2f seconds." % (len(self.signatures.formal),
                                               len(self.signatures.fuzzy),
                                               len(self.signatures.functions),
-                                              (end-start))
+                                              (end-start)))
 
     def save(self):
-        print ("Saving signatures to %s..." % self.sigfile),
+        print(("Saving signatures to %s..." % self.sigfile), end=' ')
         fp = open(self.sigfile, "wb")
         pickle.dump(self.signatures, fp)
         fp.close()
-        print "done."
+        print("done.")
 
     def load(self):
-        print ("Loading signatures from %s..." % self.sigfile),
+        print(("Loading signatures from %s..." % self.sigfile), end=' ')
         fp = open(self.sigfile, "rb")
         sigs = pickle.load(fp)
         fp.close()
-        print "done."
+        print("done.")
         return sigs
 
     def sighash(self, value):
@@ -215,7 +215,7 @@ class Rizzo(object):
             # "data" to indicate that some data was referenced.
             elif drefs:
                 for dref in drefs:
-                    if self.strings.has_key(dref):
+                    if dref in self.strings:
                         formal.append(self.strings[dref].value)
                         fuzzy.append(self.strings[dref].value)
                     else:
@@ -260,7 +260,7 @@ class Rizzo(object):
         signatures = RizzoSignatures()
 
         # Generate unique string-based function signatures
-        for (ea, string) in self.strings.iteritems():
+        for (ea, string) in self.strings.items():
             # Only generate signatures on reasonably long strings with one xref
             if len(string.value) >= 8 and len(string.xrefs) == 1:
                 func = idaapi.get_func(string.xrefs[0])
@@ -297,7 +297,7 @@ class Rizzo(object):
 
                 # Check for and remove formal duplicate signatures.
                 # If no duplicates, add this to the formal signature dict.
-                if signatures.formal.has_key(formal):
+                if formal in signatures.formal:
                     del signatures.formal[formal]
                     signatures.formaldups.add(formal)
                 elif formal not in signatures.formaldups:
@@ -305,7 +305,7 @@ class Rizzo(object):
 
                 # Check for and remove fuzzy duplicate signatures.
                 # If no duplicates, add this to the fuzzy signature dict.
-                if signatures.fuzzy.has_key(fuzzy):
+                if fuzzy in signatures.fuzzy:
                     del signatures.fuzzy[fuzzy]
                     signatures.fuzzydups.add(fuzzy)
                 elif fuzzy not in signatures.fuzzydups:
@@ -315,7 +315,7 @@ class Rizzo(object):
                 # If no duplicates, add this to the immediate signature dict.
                 for (e, f, immediates, c) in blocks:
                     for immediate in immediates:
-                        if signatures.immediates.has_key(immediate):
+                        if immediate in signatures.immediates:
                             del signatures.immediates[immediate]
                             signatures.immediatedups.add(immediate)
                         elif immediate not in signatures.immediatedups:
@@ -340,9 +340,10 @@ class Rizzo(object):
         strings = {}
         immediates = {}
 
+
         # Match formal function signatures
         start = time.time()
-        for (extsig, ext_func_ea) in extsigs.formal.iteritems():
+        for (extsig, ext_func_ea) in extsigs.formal.items():
             if extsig in self.signatures.formal:
                 new_fun = RizzoFunctionDescriptor(
                     extsigs.formal, extsigs.functions, extsig)
@@ -350,12 +351,12 @@ class Rizzo(object):
                     self.signatures.formal, self.signatures.functions, extsig)
                 formal[curr_fun] = new_fun
         end = time.time()
-        print "Found %d formal matches in %.2f seconds." % (len(formal),
-                                                            (end-start))
+        print("Found %d formal matches in %.2f seconds." % (len(formal),
+                                                            (end-start)))
 
         # Match fuzzy function signatures
         start = time.time()
-        for (extsig, ext_func_ea) in extsigs.fuzzy.iteritems():
+        for (extsig, ext_func_ea) in extsigs.fuzzy.items():
             if extsig in self.signatures.fuzzy:
                 curr_fun = RizzoFunctionDescriptor(
                     self.signatures.fuzzy, self.signatures.functions, extsig)
@@ -366,12 +367,12 @@ class Rizzo(object):
                 if len(curr_fun.blocks) == len(new_fun.blocks):
                     fuzzy[curr_fun] = new_fun
         end = time.time()
-        print "Found %d fuzzy matches in %.2f seconds." % (len(fuzzy),
-                                                           (end-start))
+        print("Found %d fuzzy matches in %.2f seconds." % (len(fuzzy),
+                                                           (end-start)))
 
         # Match string based function signatures
         start = time.time()
-        for (extsig, ext_func_ea) in extsigs.strings.iteritems():
+        for (extsig, ext_func_ea) in extsigs.strings.items():
             if extsig in self.signatures.strings:
                 curr_fun = RizzoFunctionDescriptor(
                     self.signatures.strings, self.signatures.functions, extsig)
@@ -379,12 +380,12 @@ class Rizzo(object):
                     extsigs.strings, extsigs.functions, extsig)
                 strings[curr_fun] = new_fun
         end = time.time()
-        print "Found %d string matches in %.2f seconds." % (len(strings),
-                                                            (end-start))
+        print("Found %d string matches in %.2f seconds." % (len(strings),
+                                                            (end-start)))
 
         # Match immediate baesd function signatures
         start = time.time()
-        for (extsig, ext_func_ea) in extsigs.immediates.iteritems():
+        for (extsig, ext_func_ea) in extsigs.immediates.items():
             if extsig in self.signatures.immediates:
                 curr_fun = RizzoFunctionDescriptor(
                     self.signatures.immediates, self.signatures.functions,
@@ -393,8 +394,8 @@ class Rizzo(object):
                     extsigs.immediates, extsigs.functions, extsig)
                 immediates[curr_fun] = new_fun
         end = time.time()
-        print "Found %d immediate matches in %.2f seconds." % (len(immediates),
-                                                               (end-start))
+        print("Found %d immediate matches in %.2f seconds." % (len(immediates),
+                                                               (end-start)))
 
         # Return signature matches in the order we want them applied
         # The second tuple of each match is set to True if it is a fuzzy match,
@@ -431,7 +432,7 @@ class Rizzo(object):
             # functions for
             rename = {}
 
-            for (curfunc, newfunc) in match.iteritems():
+            for (curfunc, newfunc) in match.items():
                 if newfunc not in rename:
                     rename[newfunc.name] = []
 
@@ -448,50 +449,50 @@ class Rizzo(object):
                         cblock = RizzoBlockDescriptor(cblock)
 
                         if cblock.match(nblock, fuzzy):
-                            if bm.has_key(cblock):
+                            if cblock in bm:
                                 del bm[cblock]
                                 duplicates.add(cblock)
                             elif cblock not in duplicates:
                                 bm[cblock] = nblock
 
                 # Rename known function calls from each unique code block
-                for (cblock, nblock) in bm.iteritems():
+                for (cblock, nblock) in bm.items():
                     for n in range(0, len(cblock.functions)):
-                        ea = idc.LocByName(cblock.functions[n])
+                        ea = ida_shims.get_name_ea_simple(cblock.functions[n])
                         if ea != idc.BADADDR:
-                            if rename.has_key(nblock.functions[n]):
+                            if nblock.functions[n] in rename:
                                 rename[nblock.functions[n]].append(ea)
                             else:
                                 rename[nblock.functions[n]] = [ea]
 
                 # Rename the identified functions
-                for (name, candidates) in rename.iteritems():
+                for (name, candidates) in rename.items():
                     if candidates:
                         winner = \
                             collections.Counter(candidates).most_common(1)[0][0]
                         count += self.rename(winner, name)
 
         end = time.time()
-        print "Renamed %d functions in %.2f seconds." % (count, (end-start))
+        print("Renamed %d functions in %.2f seconds." % (count, (end-start)))
 
 
 def RizzoBuild(sigfile=None):
-    print "Building Rizzo signatures, this may take a few minutes..."
+    print("Building Rizzo signatures, this may take a few minutes...")
     start = time.time()
     r = Rizzo(sigfile)
     r.save()
     end = time.time()
-    print "Built signatures in %.2f seconds" % (end-start)
+    print("Built signatures in %.2f seconds" % (end-start))
 
 
 def RizzoApply(sigfile=None):
-    print "Applying Rizzo signatures, this may take a few minutes..."
+    print("Applying Rizzo signatures, this may take a few minutes...")
     start = time.time()
     r = Rizzo(sigfile)
     s = r.load()
     r.apply(s)
     end = time.time()
-    print "Signatures applied in %.2f seconds" % (end-start)
+    print("Signatures applied in %.2f seconds" % (end-start))
 
 
 def rizzo_produce(arg=None):

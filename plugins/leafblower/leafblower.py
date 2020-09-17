@@ -130,7 +130,7 @@ class LeafBlowerFunctionChooser(choose):
 
 class ArchitectureSettings(object):
     def __init__(self, **kwargs):
-        for (k, v) in kwargs.iteritems():
+        for (k, v) in kwargs.items():
             setattr(self, k, v)
 
 
@@ -226,7 +226,7 @@ class Function(object):
         self.candidates = {}
         self.argp = ArgParser()
 
-        for (k,v) in kwargs.iteritems():
+        for (k,v) in kwargs.items():
             setattr(self, k, v)
 
         self.name = ida_shims.get_name(self.start)

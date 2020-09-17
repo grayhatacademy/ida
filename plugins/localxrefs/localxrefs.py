@@ -26,11 +26,11 @@ def add_to_namespace(namespace, name, variable):
     '''
     Add a variable to a different namespace, likely __main__.
     '''
+    import importlib
     importer_module = sys.modules[namespace]
     if name in sys.modules.keys():
-        reload(sys.modules[name])
+        importlib.reload(sys.modules[name])
     else:
-        import importlib
         m = importlib.import_module(name, None)
         sys.modules[name] = m
 
@@ -131,7 +131,7 @@ class LocalXrefs(object):
 
     def highlight(self, highlight=True, mnem=None, optype=None, direction=None,
                   text=None):
-        for (ea, info) in self.xrefs.iteritems():
+        for (ea, info) in self.xrefs.items():
             if mnem and info['mnem'] != mnem:
                 highlight = False
             elif optype and info['optype'] != optype:
@@ -162,8 +162,10 @@ def show_local_xrefs(arg=None):
     r = LocalXrefs()
     localxrefs = r
 
-    offsets = r.xrefs.keys()
-    offsets.sort()
+#    offsets = r.xrefs.keys()
+#    offsets.sort()
+
+    offsets = sorted(r.xrefs)
 
     if r.highlighted:
         ida_shims.msg(header % (r.highlighted, r.function))

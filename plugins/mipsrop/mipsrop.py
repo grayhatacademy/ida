@@ -89,11 +89,11 @@ def add_to_namespace(namespace, name, variable):
     '''
     Add a variable to a different namespace, likely __main__.
     '''
+    import importlib
     importer_module = sys.modules[namespace]
-    if name in sys.modules.keys():
-        reload(sys.modules[name])
+    if name in list(sys.modules.keys()):
+        importlib.reload(sys.modules[name])
     else:
-        import importlib
         m = importlib.import_module(name, None)
         sys.modules[name] = m
 
@@ -199,7 +199,7 @@ class BowcasterBuilder(object):
         self.gadgets = gadgets
 
     def build_code(self):
-        keys = self.gadgets.keys()
+        keys = list(self.gadgets.keys())
         keys.sort()
 
         for key in keys[::-1]:
@@ -215,7 +215,7 @@ class BowcasterBuilder(object):
 
     def print_code(self):
         for line in self.code:
-            print line
+            print(line)
 
 
 class MIPSROPFinder(object):
@@ -233,11 +233,11 @@ class MIPSROPFinder(object):
         self._initial_find()
 
         if self.controllable_jumps or self.system_calls:
-            print "MIPS ROP Finder activated, found %d controllable jumps " \
+            print("MIPS ROP Finder activated, found %d controllable jumps " \
                   "between 0x%.8X and 0x%.8X" % (len(self.controllable_jumps),
-                                                 self.start, self.end)
+                                                 self.start, self.end))
         else:
-            print "No ROP gadgets found!"
+            print("No ROP gadgets found!")
 
     def _initial_find(self):
         self.start = idc.BADADDR
@@ -519,15 +519,15 @@ class MIPSROPFinder(object):
 
     def _print_gadgets(self, gadgets):
         if gadgets:
-            print gadgets[0].header()
+            print(gadgets[0].header())
 
         for gadget in gadgets:
-            print str(gadget)
+            print(str(gadget))
 
         if gadgets:
-            print gadgets[0].footer()
+            print(gadgets[0].footer())
 
-        print "Found %d matching gadgets" % (len(gadgets))
+        print("Found %d matching gadgets" % (len(gadgets)))
 
     def _get_marked_gadgets(self):
         rop_gadgets = {}
@@ -646,15 +646,15 @@ class MIPSROPFinder(object):
             count += 1
 
         if good_gadgets:
-            for (ea, info) in good_gadgets.iteritems():
+            for (ea, info) in good_gadgets.items():
                 if info['count'] == count:
                     final_gadgets.append(info['gadget'])
                 else:
-                    print "Skipping gadget at 0x%X" % ea
+                    print("Skipping gadget at 0x%X" % ea)
         if final_gadgets:
             self._print_gadgets(gadgets)
         else:
-            print "No ROP gadgets found!"
+            print("No ROP gadgets found!")
 
     def summary(self):
         '''
@@ -680,7 +680,7 @@ class MIPSROPFinder(object):
         total_length = (3 * len(headings)) + 1
 
         if rop_gadgets:
-            gadget_keys = rop_gadgets.keys()
+            gadget_keys = list(rop_gadgets.keys())
             gadget_keys.sort()
 
             for marked_comment in gadget_keys:
@@ -709,17 +709,17 @@ class MIPSROPFinder(object):
 
                 summaries.append(summary)
 
-            for (heading, size) in lengths.iteritems():
+            for (heading, size) in lengths.items():
                 total_length += size
 
             delim = delim_char * total_length
             line_fmt = "| %%-%ds | %%-%ds | %%-%ds |" % \
                        (lengths['name'], lengths['offset'], lengths['summary'])
 
-            print delim
-            print line_fmt % \
-                  (headings['name'], headings['offset'], headings['summary'])
-            print delim
+            print(delim)
+            print(line_fmt % \
+                  (headings['name'], headings['offset'], headings['summary']))
+            print(delim)
 
             for i in range(0, len(gadget_keys)):
                 line_count = 0
@@ -734,13 +734,13 @@ class MIPSROPFinder(object):
 
                 for line in summary:
                     if line_count == 0:
-                        print line_fmt % (marked_comment, offset, line)
+                        print(line_fmt % (marked_comment, offset, line))
                     else:
-                        print line_fmt % ('', '', line)
+                        print(line_fmt % ('', '', line))
 
                     line_count += 1
 
-                print delim
+                print(delim)
 
     def build(self):
         '''
@@ -763,40 +763,40 @@ class MIPSROPFinder(object):
         '''
         delim = "-" * 140
 
-        print ""
-        print "mipsrop.find(instruction_string)"
-        print delim
-        print self.find.__doc__
+        print("")
+        print("mipsrop.find(instruction_string)")
+        print(delim)
+        print(self.find.__doc__)
 
-        print ""
-        print "mipsrop.system()"
-        print delim
-        print self.system.__doc__
+        print("")
+        print("mipsrop.system()")
+        print(delim)
+        print(self.system.__doc__)
 
-        print ""
-        print "mipsrop.doubles()"
-        print delim
-        print self.doubles.__doc__
+        print("")
+        print("mipsrop.doubles()")
+        print(delim)
+        print(self.doubles.__doc__)
 
-        print ""
-        print "mipsrop.stackfinders()"
-        print delim
-        print self.stackfinders.__doc__
+        print("")
+        print("mipsrop.stackfinders()")
+        print(delim)
+        print(self.stackfinders.__doc__)
 
-        print ""
-        print "mipsrop.tails()"
-        print delim
-        print self.tails.__doc__
+        print("")
+        print("mipsrop.tails()")
+        print(delim)
+        print(self.tails.__doc__)
 
-        print ""
-        print "mipsrop.set_base()"
-        print delim
-        print self.set_base.__doc__
+        print("")
+        print("mipsrop.set_base()")
+        print(delim)
+        print(self.set_base.__doc__)
 
-        print ""
-        print "mipsrop.summary()"
-        print delim
-        print self.summary.__doc__
+        print("")
+        print("mipsrop.summary()")
+        print(delim)
+        print(self.summary.__doc__)
 
 
 try:

@@ -17,7 +17,7 @@ IDA_FUNCTION_PROFILES = None
 
 class IDAProfilerXref(object):
     def __init__(self, **kwargs):
-        for (k, v) in kwargs.iteritems():
+        for (k, v) in kwargs.items():
             setattr(self, k, v)
 
 
@@ -36,7 +36,7 @@ class IDAFunctionProfiler(object):
                 func = idaapi.get_func(xref.frm)
                 if func:
                     start_ea = ida_shims.start_ea(func)
-                    if not self.functions.has_key(start_ea):
+                    if start_ea not in self.functions:
                         self.functions[start_ea] = list()
 
                     xref = IDAProfilerXref(ea=string.ea, string=key_string,
@@ -49,7 +49,7 @@ class IDAFunctionProfiler(object):
                 func = idaapi.get_func(xref.frm)
                 if func:
                     start_ea = ida_shims.start_ea(func)
-                    if not self.functions.has_key(start_ea):
+                    if start_ea not in self.functions:
                         self.functions[start_ea] = list()
 
                     self.functions[start_ea].append(IDAProfilerXref(
@@ -57,7 +57,7 @@ class IDAFunctionProfiler(object):
                         xref=xref.frm, type=callable))
 
     def _sort_functions(self):
-        for function in self.functions.keys():
+        for function in list(self.functions.keys()):
             self.functions[function] = sorted(self.functions[function],
                                               key=attrgetter('xref'))
 
@@ -124,7 +124,7 @@ class IDAFunctionProfilerChooser(choose):
     def populate_items(self):
         self.items = []
 
-        for (func_ea, xrefs) in self.profile.functions.iteritems():
+        for (func_ea, xrefs) in self.profile.functions.items():
             if not self.function_filters or func_ea in self.function_filters:
                 orig_items_len = len(self.items)
 
@@ -184,12 +184,12 @@ class IDAFunctionProfilerChooser(choose):
 
         if regex_str:
             if dryrun:
-                print "Testing regex rename rule: '%s'" % regex_str
+                print("Testing regex rename rule: '%s'" % regex_str)
 
             regex = re.compile(regex_str)
 
             # Look at all the profiled functions
-            for (function, xrefs) in self.profile.functions.iteritems():
+            for (function, xrefs) in self.profile.functions.items():
                 new_function_name = ""
 
                 # Don't rename functions that have already been renamed
@@ -225,14 +225,14 @@ class IDAFunctionProfilerChooser(choose):
                         n += 1
 
                     if dryrun:
-                        print "%s => %s" % (idc.Name(function),
-                                            new_function_name)
+                        print("%s => %s" % (idc.Name(function),
+                                            new_function_name))
                         count += 1
                     else:
                         if ida_shims.set_name(function, new_function_name):
                             count += 1
 
-            print "Renamed %d functions" % count
+            print("Renamed %d functions" % count)
 
 
 def from_function_profiler(arg=None):
@@ -248,7 +248,7 @@ def from_function_profiler(arg=None):
                             "because 0x%X is not inside a function!" % cur_loc)
         chooser.show()
     except Exception as e:
-        print "IDAFunctionProfiler ERROR: %s" % str(e)
+        print("IDAFunctionProfiler ERROR: %s" % str(e))
 
 
 def all_functions_profiler(arg=None):
@@ -256,7 +256,7 @@ def all_functions_profiler(arg=None):
         chooser = IDAFunctionProfilerChooser()
         chooser.show()
      except Exception as e:
-        print "IDAFunctionProfiler ERROR: %s" % str(e)
+        print("IDAFunctionProfiler ERROR: %s" % str(e))
 
 
 try:
