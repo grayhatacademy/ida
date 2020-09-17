@@ -34,6 +34,7 @@ import os
 import time
 import pickle       # http://natashenka.ca/pickle/
 import collections
+import hashlib
 
 from shims import ida_shims
 
@@ -163,7 +164,11 @@ class Rizzo(object):
         return sigs
 
     def sighash(self, value):
-        return hash(str(value)) & 0xFFFFFFFF
+        h = hashlib.md5()
+        h.update(value.encode("utf-8"))
+        hash_value = h.hexdigest()
+        del(h)
+        return hash_value
 
     def block(self, block):
         '''
@@ -339,7 +344,6 @@ class Rizzo(object):
         formal = {}
         strings = {}
         immediates = {}
-
 
         # Match formal function signatures
         start = time.time()
