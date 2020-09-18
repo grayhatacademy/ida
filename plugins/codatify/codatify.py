@@ -6,6 +6,7 @@
 # Craig Heffner
 # Tactical Network Solutions
 
+from __future__ import print_function
 import idc
 import string
 import idaapi

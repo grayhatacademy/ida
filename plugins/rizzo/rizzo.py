@@ -26,6 +26,8 @@
 # Craig Heffner
 # @devttys0
 ##########################################################################
+
+from __future__ import print_function
 import idc
 import idaapi
 import idautils
