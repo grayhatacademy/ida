@@ -168,7 +168,7 @@ class AlleyCatCodePaths(AlleyCat):
                                     end_ea)
 
         start_func_ea = ida_shims.start_ea(start_func)
-        end_func_ea = ida_shims.end_ea(end_func)
+        end_func_ea = ida_shims.start_ea(end_func)
 
         if start_func_ea != end_func_ea:
             raise AlleyCatException("The start and end addresses are not part "
