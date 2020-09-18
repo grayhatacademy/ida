@@ -20,9 +20,14 @@ def add_to_namespace(namespace, source, name, variable):
     Add a variable to a different namespace, likely __main__.
     '''
     import importlib
+
     importer_module = sys.modules[namespace]
     if source in list(sys.modules.keys()):
-        importlib.reload(sys.modules[source])
+        if not (sys.version_info.major == 3 and sys.version_info.minor >= 4):
+            import imp
+            imp.reload(sys.modules[source])
+        else:
+            importlib.reload(sys.modules[source])
     else:
         m = importlib.import_module(source, None)
         sys.modules[source] = m
