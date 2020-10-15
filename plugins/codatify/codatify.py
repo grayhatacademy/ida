@@ -6,6 +6,7 @@
 # Craig Heffner
 # Tactical Network Solutions
 
+from __future__ import print_function
 import idc
 import string
 import idaapi
@@ -66,7 +67,7 @@ class StructPatternDetector(object):
                 struct2 = StructCast(address, n)
                 this_pattern = [x.type for x in struct2.entries[p1:p2+1]]
                 if this_pattern == pattern_to_match:
-                    entry_element_count = (address - ea) / self.element_size
+                    entry_element_count = int((address - ea) / self.element_size)
                     break
 
             if entry_element_count is not None and entry_element_count > 0:
@@ -120,7 +121,7 @@ class StructPatternDetector(object):
 class Struct(object):
 
     def __init__(self, **kwargs):
-        for (k, v) in kwargs.iteritems():
+        for (k, v) in kwargs.items():
             setattr(self, k, v)
 
 
@@ -159,8 +160,8 @@ class StructFinder(object):
     def search(self):
         patterns = []
 
-        print "Searching for data structure arrays from %s to %s" % \
-              (hex(self.start), hex(self.stop))
+        print("Searching for data structure arrays from %s to %s" % \
+              (hex(self.start), hex(self.stop)))
 
         ea = self.start
         while ea < self.stop:
@@ -186,14 +187,14 @@ class StructFinder(object):
                 else:
                     j += 1
 
-            print "Found an array of %d structures at 0x%X - 0x%X. Each " \
+            print("Found an array of %d structures at 0x%X - 0x%X. Each " \
                   "entry has %d elements of %d bytes each." % \
                   (patterns[i].num_entries, patterns[i].start, patterns[i].stop,
-                   patterns[i].num_elements, patterns[i].element_size)
+                   patterns[i].num_elements, patterns[i].element_size))
 
-            print "Array element #%d is the address pointer, and element #%d " \
+            print("Array element #%d is the address pointer, and element #%d " \
                   "is the address pointer name.\n" % \
-                  (patterns[i].function_element, patterns[i].name_element)
+                  (patterns[i].function_element, patterns[i].name_element))
 
             i += 1
 
@@ -213,16 +214,16 @@ class StructFinder(object):
                     ea + (pattern.function_element * pattern.element_size))
 
                 new_function_name = ida_shims.get_strlit_contents(
-                    string_address)
+                    string_address).decode("utf8")
                 current_function_name = ida_shims.get_name(function_address)
 
                 if not self.valid_function_name(new_function_name):
-                    print "ERROR: '%s' is not a valid function name. This is " \
+                    print("ERROR: '%s' is not a valid function name. This is " \
                           "likely not a function table, or I have parsed it " \
-                          "incorrectly!" % new_function_name
-                    print "       Ignoring all entries in the structures " \
+                          "incorrectly!" % new_function_name)
+                    print("       Ignoring all entries in the structures " \
                           "between 0x%X and 0x%X.\n" % (pattern.start,
-                                                        pattern.stop)
+                                                        pattern.stop))
                     name2func = {}
                     break
                 elif current_function_name.startswith("sub_"):
@@ -230,12 +231,12 @@ class StructFinder(object):
 
                 ea += (pattern.num_elements * pattern.element_size)
 
-            for (name, address) in name2func.iteritems():
-                print "0x%.8X => %s" % (address, name)
+            for (name, address) in name2func.items():
+                print("0x%.8X => %s" % (address, name))
                 ida_shims.set_name(address, name)
                 count += 1
 
-        print "Renamed %d functions!" % count
+        print("Renamed %d functions!" % count)
 
 
 class FunctionNameology(object):
@@ -254,16 +255,16 @@ class FunctionNameology(object):
         '''
         count = 0
 
-        for (function_address, function_name) in self.func2str_mappings().iteritems():
+        for (function_address, function_name) in self.func2str_mappings().items():
             if ida_shims.get_name(function_address).startswith("sub_"):
                 if dry_run or ida_shims.set_name(function_address, function_name):
                     if debug:
-                        print "0x%.8X  =>  %s" % (function_address,
-                                                  function_name)
+                        print("0x%.8X  =>  %s" % (function_address,
+                                                  function_name))
                     count += 1
 
         if debug:
-            print "Renamed %d functions based on unique string xrefs!" % count
+            print("Renamed %d functions based on unique string xrefs!" % count)
 
         return count
 
@@ -280,12 +281,12 @@ class FunctionNameology(object):
             if self.is_valid_function_name(str(string)):
                 function_address = self.str2func(string.ea)
                 if function_address is not None:
-                    if not function_map.has_key(function_address):
+                    if function_address not in function_map:
                         function_map[function_address] = []
                     function_map[function_address].append(str(string))
 
         # Each function must have only one candidate string
-        for function_address in function_map.keys():
+        for function_address in list(function_map.keys()):
             if len(function_map[function_address]) == 1:
                 function_map[function_address] = function_map[function_address][0]
             else:
@@ -363,7 +364,7 @@ class Codatify(object):
         if ea == idc.BADADDR:
             ea = ida_shims.get_first_seg()
 
-        print "Looking for possible strings starting at: 0x%X..." % ea,
+        print("Looking for possible strings starting at: 0x%X..." % ea, end=' ')
 
         for s in idautils.Strings():
             if s.ea > ea:
@@ -371,7 +372,7 @@ class Codatify(object):
                         and ida_shims.create_strlit(s.ea, 0):
                     n += 1
 
-        print "created %d new ASCII strings" % n
+        print("created %d new ASCII strings" % n)
 
     # Converts remaining data into DWORDS.
     def datify(self):
@@ -379,7 +380,7 @@ class Codatify(object):
         if ea == idc.BADADDR:
             ea = ida_shims.get_first_seg()
 
-        print "Converting remaining data to DWORDs...",
+        print("Converting remaining data to DWORDs...", end=' ')
 
         while ea != idc.BADADDR:
             flags = ida_shims.get_full_flags(ea)
@@ -391,14 +392,14 @@ class Codatify(object):
 
             ea = ida_shims.next_addr(ea)
 
-        print "done."
+        print("done.")
 
         self._fix_data_offsets()
 
     def pointify(self):
         counter = 0
 
-        print "Renaming pointers...",
+        print("Renaming pointers...", end=' ')
 
         for (name_ea, name) in idautils.Names():
             for xref in idautils.XrefsTo(name_ea):
@@ -415,13 +416,13 @@ class Codatify(object):
                     #else:
                     #    print "Failed to create name '%s'!" % new_name
 
-        print "renamed %d pointers" % counter
+        print("renamed %d pointers" % counter)
 
     def _fix_data_offsets(self):
         ea = 0
         count = 0
 
-        print "Fixing unresolved offset xrefs...",
+        print("Fixing unresolved offset xrefs...", end=' ')
 
         while ea != idaapi.BADADDR:
             (ea, n) = idaapi.find_notype(ea, idaapi.SEARCH_DOWN)
@@ -435,7 +436,7 @@ class Codatify(object):
                                         (idaapi.dr_O | idaapi.XREF_USER))
                         count += 1
 
-        print "created %d new data xrefs" % count
+        print("created %d new data xrefs" % count)
 
     # Creates functions and code blocks
     def codeify(self, ea=idc.BADADDR):
@@ -447,8 +448,8 @@ class Codatify(object):
             if ea == idc.BADADDR:
                 ea = ida_shims.get_first_seg()
 
-        print "\nLooking for undefined code starting at: %s:0x%X" % \
-              (ida_shims.get_segm_name(ea), ea)
+        print("\nLooking for undefined code starting at: %s:0x%X" % \
+              (ida_shims.get_segm_name(ea), ea))
 
         while ea != idc.BADADDR:
             try:
@@ -466,8 +467,8 @@ class Codatify(object):
 
             ea = ida_shims.next_addr(ea)
 
-        print "Created %d new functions and %d new code blocks\n" % \
-              (func_count, code_count)
+        print("Created %d new functions and %d new code blocks\n" % \
+              (func_count, code_count))
 
 
 try:

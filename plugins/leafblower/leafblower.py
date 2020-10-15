@@ -54,6 +54,9 @@ class LeafBlowerFunctionChooser(choose):
     def OnClose(self):
         pass
 
+    def AddCommand(self, caption):
+        pass
+
     def OnCommand(self, n, cmd):
         if cmd == self.show_all_toggle_cmd:
 
@@ -122,15 +125,13 @@ class LeafBlowerFunctionChooser(choose):
     def show(self):
         if self.Show(modal=False) < 0:
             return False
-        self.show_all_toggle_cmd = self.AddCommand(
-            "Toggle 'show all leaf functions'")
-        self.rename_cmd = self.AddCommand(
-            "Rename all sub_XXXXXX leaf functions to 'leaf_XXXXXX'")
+        self.show_all_toggle_cmd = self.AddCommand("Toggle 'show all leaf functions'")
+        self.rename_cmd = self.AddCommand("Rename all sub_XXXXXX leaf functions to 'leaf_XXXXXX'")
 
 
 class ArchitectureSettings(object):
     def __init__(self, **kwargs):
-        for (k, v) in kwargs.iteritems():
+        for (k, v) in kwargs.items():
             setattr(self, k, v)
 
 
@@ -226,7 +227,7 @@ class Function(object):
         self.candidates = {}
         self.argp = ArgParser()
 
-        for (k,v) in kwargs.iteritems():
+        for (k,v) in kwargs.items():
             setattr(self, k, v)
 
         self.name = ida_shims.get_name(self.start)

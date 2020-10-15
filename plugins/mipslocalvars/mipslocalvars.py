@@ -6,6 +6,7 @@
 # Craig Heffner
 # Tactical Network Solutions
 
+from __future__ import print_function
 import idaapi
 import idautils
 
@@ -23,7 +24,7 @@ class NameMIPSSavedRegisters(object):
     }
 
     def __init__(self):
-        print "Naming saved register locations...",
+        print("Naming saved register locations...", end=' ')
 
         for ea in idautils.Functions():
             mea = ea
@@ -60,7 +61,7 @@ class NameMIPSSavedRegisters(object):
 
                 mea += self.INSIZE
 
-        print "done."
+        print("done.")
 
 
 def name_saved_registers(arg=None):
