@@ -6,7 +6,7 @@ Collection of IDA plugins that I've written to help with RE work.
 To install all plugins, run:
 
 ```
-$ python ./install.py /path/to/your/ida/install/directory
+$ python ./install.py --install -d /path/to/your/ida/install/directory
 ```
 
 To install only selected plugins, just drop the .py file(s) into IDA's `plugins` directory.
