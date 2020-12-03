@@ -47,9 +47,9 @@ for plugin in next(os.walk('.'))[1]:
                 shutil.rmtree(os.path.dirname(dst))
             else:
                 os.remove(dst)
-            print 'removed.'
+            print ("removed.")
         except OSError:
-            print 'not found.'
+            print ("not found.")
             continue
 
 print ("Done.")
