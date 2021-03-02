@@ -74,7 +74,10 @@ class LocalXrefs(object):
         ea = ida_shims.get_func_attr(current_function_ea,  idc.FUNCATTR_START)
         end_ea = ida_shims.get_func_attr(current_function_ea, idc.FUNCATTR_END)
 
-        self.highlighted = ida_shims.get_highlighted_identifier()
+        try:
+            self.highlighted = ida_shims.get_highlighted_identifier()
+        except TypeError:
+            raise Exception("No text was highlighted. Nothing to show.") 
 
         while ea < end_ea and ea != idc.BADADDR and self.highlighted:
             i = 0
