@@ -367,7 +367,7 @@ class Codatify(object):
         print("Looking for possible strings starting at: 0x%X..." % ea, end=' ')
 
         for s in idautils.Strings():
-            if s.ea > ea:
+            if s.ea >= ea:
                 if not ida_shims.is_strlit(ida_shims.get_full_flags(s.ea)) \
                         and ida_shims.create_strlit(s.ea, 0):
                     n += 1
