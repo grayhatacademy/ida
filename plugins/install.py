@@ -52,7 +52,10 @@ def install_plugins(ida_install_path):
             src = os.path.join(source_path, plugin, plugin + '.py')
             dst = os.path.join(install_path, plugin + '.py')
 
-        shutil.copyfile(src, dst)
+        try:
+            shutil.copyfile(src, dst)
+        except IOError:
+            print('%s is not a known plugin. Skipping copy...' % plugin, end='')
         print('Done')
 
 
