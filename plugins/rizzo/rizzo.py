@@ -414,17 +414,16 @@ class Rizzo(object):
     def rename(self, ea, name):
         # Don't rely on the name in curfunc, it could have already been renamed
         curname = ida_shims.get_name(ea)
-        # Don't rename if the name is a special identifier, or if the ea has
-        # already been named
-        if curname.startswith('sub_') and \
-                name.split('_')[0] not in \
-                ['sub', 'loc', 'unk', 'dword', 'word', 'byte']:
-            # Don't rename if the name already exists in the IDB
-            if ida_shims.get_name_ea_simple(name) == idc.BADADDR:
-                if ida_shims.set_name(ea, name):
-                    ida_shims.set_func_flags(
-                        ea, (ida_shims.get_func_flags(ea) | idc.FUNC_LIB))
-                    return 1
+
+        if ida_shims.get_name_ea_simple(name) == idc.BADADDR:
+            if ida_shims.set_name(ea, name):
+                ida_shims.set_func_flags(
+                    ea, (ida_shims.get_func_flags(ea) | idc.FUNC_LIB))
+                if not curname.startswith('sub_') or \
+                    name.split('_')[0] in \
+                    ['sub', 'loc', 'unk', 'dword', 'word', 'byte']:
+                    print("Rename symbol %s to %s" % (curname, name))
+                return 1
         return 0
 
     def apply(self, extsigs):
@@ -472,11 +471,14 @@ class Rizzo(object):
                                 rename[nblock.functions[n]] = [ea]
 
                 # Rename the identified functions
+                renamed = set()
                 for (name, candidates) in rename.items():
                     if candidates:
                         winner = \
                             collections.Counter(candidates).most_common(1)[0][0]
-                        count += self.rename(winner, name)
+                        if winner not in renamed:
+                            count += self.rename(winner, name)
+                        renamed.add(winner)
 
         end = time.time()
         print("Renamed %d functions in %.2f seconds." % (count, (end-start)))
