@@ -350,7 +350,7 @@ class IDAFunctionProfilerPlugin(idaapi.plugin_t):
                 idaapi.del_menu_item(context)
         return None
 
-    def run(self):
+    def run(self, arg):
         pass
 
 
