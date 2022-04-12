@@ -145,7 +145,11 @@ class ArchitectureSpecific(object):
                              delay=1, size=4),
         ArchitectureSettings(name="ARM",
                              argv=['R0', 'R1', 'R2', 'R3'],
+                             delay=0, size=4),
+        ArchitectureSettings(name="NIOS2",
+                             argv=['r4', 'r5', 'r6', 'r7'],
                              delay=0, size=4)
+
     ]
 
     def __init__(self):
@@ -642,7 +646,8 @@ class leaf_blower_t(idaapi.plugin_t):
                 idaapi.del_menu_item(context)
         return None
 
-    def run(self):
+    def run(self, arg):
+        print(arg)
         pass
 
 
