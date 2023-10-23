@@ -527,6 +527,9 @@ class AlleyCatGraph(idaapi.GraphViewer):
         0xXXXXXXXX.
         '''
         name = ida_shims.get_name(ea)
+        demangled_name = idc.demangle_name(name, idc.get_inf_attr(idc.INF_SHORT_DN))
+        if demangled_name != None:
+            return demangled_name
         if not name:
             name = ida_shims.get_func_off_str(ea)
             if not name:
